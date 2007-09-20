@@ -1,0 +1,25 @@
+Variables
+
+%(ns1)	= Servidor de nombres de la zona (dominio)
+%(ns2)	= Servidor de nombres de la zona (dominio)
+
+%(zone1) = Nombre de la zona (dominio)
+%(host_name1) = Nombre del host 1 (sin dominio)
+%(host_name2) = Nombre del host 2 (sin dominio)
+
+
+
+------------------8<---------------
+
+$TTL 1W
+@       IN      SOA     %(ns1).%(zone1). root.%(zone1).  (
+                                      2002081601 ; Serial
+                                      28800      ; Refresh
+                                      14400      ; Retry
+                                      604800     ; Expire - 1 week
+                                      86400 )    ; Minimum
+@		IN      NS      %(ns1)
+
+%(host_name1)	IN	A	%(host_ip1)
+%(host_name2)	IN	A	%(host_ip2)
+

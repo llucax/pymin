@@ -1,0 +1,4 @@
+host %(host_name)s {
+  fixed-address %(host_ip)s;
+  hardware ethernet %(host_mac)s;
+}

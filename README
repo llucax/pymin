@@ -1,0 +1,21 @@
+Esta es una estructura básica de lo que puede ser el daemon, con el mecanismo
+básico de despacho de comandos.
+
+Para correr el ejemplo:
+python pollserver.py
+
+luego desde otra consola escribir, podemos comunicarnos via netcat:
+nc localhost 9999
+
+y mandar comandos que comiencen con 'test':
+test alal dldl flkg
+
+En la ventana del server debería aparecer algo como:
+test: ('alal', 'dldl', 'flkg')
+
+Si no empieza con 'test' va a explotar el server porque todavía no tiene manejo
+de errores, pero es fácil ponerlo.
+
+Para hacer una prueba simple del dispatcher: python dispatcher.py
+
+http://www.cisco.com/en/US/products/sw/iosswrel/ps5187/prod_command_reference_list.html
