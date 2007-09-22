@@ -1,0 +1,17 @@
+
+Ideas / TODO:
+
+* Soportar comillas para argumentos con espacios y otros caracteres, onda:
+  'misc set motd "Hola!\nEste es el servidor de garombia"'
+
+* Soportar keyword arguments, onda que:
+  'dns set pepe=10.10.10.1 juan=10.10.10.2'
+  se mapee a algo como: dns.set(pepe='10.10.10.1', juan='10.10.10.2')
+
+Estas cosas quedan sujetas a necesitada y a definición del protocolo.
+Para mí lo ideal es que el protocolo de red sea igual que la consola del
+usuario, porque después de todo no va a ser más que eso, mandar comanditos.
+
+Por otro lado, el cliente de consola, por que no es el cliente web pero
+accedido via ssh usando un navegador de texto como w3m???
+
