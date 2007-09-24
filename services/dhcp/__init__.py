@@ -149,6 +149,17 @@ class HostHandler:
         del self.hosts[name]
 
     @handler
+    def get(self, name):
+        r"""get(name) -> CSV string :: List all the information of a host.
+
+        The host is returned as a CSV list of: hostname,ip,mac
+        """
+        if not name in self.hosts:
+            raise HostNotFoundError(name)
+        h = self.hosts[name]
+        return '%s,%s,%s' % (h.name, h.ip, h.mac)
+
+    @handler
     def list(self):
         r"""list() -> CSV string :: List all the hostnames.
 
@@ -210,6 +221,13 @@ class DhcpHandler:
         if not param in self.vars:
             raise ParameterNotFoundError(param)
         self.vars[param] = value
+
+    @handler
+    def get(self, param):
+        r"get(param) -> None :: Get a DHCP parameter."
+        if not param in self.vars:
+            raise ParameterNotFoundError(param)
+        return self.vars[param]
 
     @handler
     def list(self):
