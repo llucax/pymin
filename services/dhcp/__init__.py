@@ -218,7 +218,9 @@ class DhcpHandler:
     def _dump_var(self, var, name):
         r"_dump_var() -> None :: Dump a especific variable to a pickle file."
         # XXX podría ir en una clase base
-        pickle.dump(var, file(self._pickle_filename(name), 'wb'), 2)
+        pkl_file = file(self._pickle_filename(name), 'wb')
+        pickle.dump(var, pkl_file, 2)
+        pkl_file.close()
 
     def _load_var(self, name):
         r"_load_var() -> object :: Load a especific pickle file."
@@ -232,6 +234,7 @@ class DhcpHandler:
         out_file = file(path.join(self.config_dir, config_filename), 'w')
         ctx = Context(out_file, hosts=self.hosts.values(), **self.vars)
         self.template.render_context(ctx)
+        out_file.close()
 
 if __name__ == '__main__':
 
