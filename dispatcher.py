@@ -108,7 +108,7 @@ class Dispatcher:
                 raise CommandNotFoundError(command)
             handler = getattr(handler, route[0])
             route = route[1:]
-        handler(*route)
+        return handler(*route)
 
 
 if __name__ == '__main__':

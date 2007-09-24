@@ -58,7 +58,12 @@ class PyminDaemon(EventLoop):
     def handle(self):
         r"handle() -> None :: Handle incoming events using the dispatcher."
         (msg, addr) = self.file.recvfrom(65535)
-        self.dispatcher.dispatch(msg)
+        result = self.dispatcher.dispatch(msg)
+        if result is None:
+            msg = 'OK 0'
+        else:
+            msg = 'OK %d\n%s' % (len(str(result)), result)
+        self.file.sendto(msg, addr)
         #try:
         #    d.dispatch(msg)
         #except dis.BadRouteError, inst:
