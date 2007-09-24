@@ -80,6 +80,7 @@ class PyminDaemon(EventLoop):
 
 if __name__ == '__main__':
 
+    @handler
     def test_handler(*args):
         print 'test:', args
 
