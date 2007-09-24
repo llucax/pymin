@@ -22,6 +22,81 @@ config_filename = 'dhcpd.conf'
 
 template_dir = path.join(path.dirname(__file__), 'templates')
 
+class Error(RuntimeError):
+    r"""
+    Error(command) -> Error instance :: Base DhcpHandler exception class.
+
+    All exceptions raised by the DhcpHandler inherits from this one, so you can
+    easily catch any DhcpHandler exception.
+
+    message - A descriptive error message.
+    """
+
+    def __init__(self, message):
+        r"Initialize the Error object. See class documentation for more info."
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+class HostError(Error, KeyError):
+    r"""
+    HostError(hostname) -> HostError instance
+
+    This is the base exception for all host related errors.
+    """
+
+    def __init__(self, hostname):
+        r"Initialize the object. See class documentation for more info."
+        self.message = 'Host error: "%s"' % hostname
+
+class HostAlreadyExistsError(HostError):
+    r"""
+    HostAlreadyExistsError(hostname) -> HostAlreadyExistsError instance
+
+    This exception is raised when trying to add a hostname that already exists.
+    """
+
+    def __init__(self, hostname):
+        r"Initialize the object. See class documentation for more info."
+        self.message = 'Host already exists: "%s"' % hostname
+
+class HostNotFoundError(HostError):
+    r"""
+    HostNotFoundError(hostname) -> HostNotFoundError instance
+
+    This exception is raised when trying to operate on a hostname that doesn't
+    exists.
+    """
+
+    def __init__(self, hostname):
+        r"Initialize the object. See class documentation for more info."
+        self.message = 'Host not found: "%s"' % hostname
+
+class ParameterError(Error, KeyError):
+    r"""
+    ParameterError(paramname) -> ParameterError instance
+
+    This is the base exception for all DhcpHandler parameters related errors.
+    """
+
+    def __init__(self, paramname):
+        r"Initialize the object. See class documentation for more info."
+        self.message = 'Parameter error: "%s"' % paramname
+
+class ParameterNotFoundError(ParameterError):
+    r"""
+    ParameterNotFoundError(hostname) -> ParameterNotFoundError instance
+
+    This exception is raised when trying to operate on a parameter that doesn't
+    exists.
+    """
+
+    def __init__(self, paramname):
+        r"Initialize the object. See class documentation for more info."
+        self.message = 'Parameter not found: "%s"' % paramname
+
+
 class Host:
     r"""Host(name, ip, mac) -> Host instance :: Class representing a host.
 
@@ -52,16 +127,15 @@ class HostHandler:
     @handler
     def add(self, name, ip, mac):
         r"add(name, ip, mac) -> None :: Add a host to the hosts list."
-        # XXX deberia indexar por hostname o por ip? o por mac? :)
-        # o por nada... Puedo tener un nombre con muchas IPs? Una IP con muchos
-        # nombres? Una MAC con muchas IP? una MAC con muchos nombre? Etc...
+        if name in self.hosts:
+            raise HostAlreadyExistsError(name)
         self.hosts[name] = Host(name, ip, mac)
 
     @handler
     def update(self, name, ip=None, mac=None):
         r"update(name[, ip[, mac]]) -> None :: Update a host of the hosts list."
         if not name in self.hosts:
-            raise KeyError('Host not found')
+            raise HostNotFoundError(name)
         if ip is not None:
             self.hosts[name].ip = ip
         if mac is not None:
@@ -71,7 +145,7 @@ class HostHandler:
     def delete(self, name):
         r"delete(name) -> None :: Delete a host of the hosts list."
         if not name in self.hosts:
-            raise KeyError('Host not found')
+            raise HostNotFoundError(name)
         del self.hosts[name]
 
     @handler
@@ -134,7 +208,7 @@ class DhcpHandler:
     def set(self, param, value):
         r"set(param, value) -> None :: Set a DHCP parameter."
         if not param in self.vars:
-            raise KeyError('Parameter ' + param + ' not found')
+            raise ParameterNotFoundError(param)
         self.vars[param] = value
 
     @handler

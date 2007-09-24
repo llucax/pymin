@@ -27,7 +27,7 @@ class Error(RuntimeError):
         self.command = command
 
     def __str__(self):
-        return ' '.join(self.command)
+        return 'Command not found: "%s"' % ' '.join(self.command)
 
 class CommandNotFoundError(Error):
     r"""
