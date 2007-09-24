@@ -15,7 +15,8 @@ class Error(RuntimeError):
     All exceptions raised by the Dispatcher inherits from this one, so you can
     easily catch any dispatching exception.
 
-    command - is the command that raised the exception.
+    command - is the command that raised the exception, expressed as a list of
+              paths (or subcommands).
     """
 
     def __init__(self, command):
@@ -26,7 +27,7 @@ class Error(RuntimeError):
         self.command = command
 
     def __str__(self):
-        return repr(self.command)
+        return ' '.join(self.command)
 
 class CommandNotFoundError(Error):
     r"""
@@ -36,6 +37,14 @@ class CommandNotFoundError(Error):
     because there is no handlers to process it.
     """
     pass
+
+def handler(f):
+    f._dispatcher_handler = True
+    return f
+
+def is_handler(handler):
+    return callable(handler) and hasattr(handler, '_dispatcher_handler') \
+            and handler._dispatcher_handler
 
 class Dispatcher:
     r"""Dispatcher([routes]) -> Dispatcher instance :: Command dispatcher
@@ -82,16 +91,21 @@ class Dispatcher:
         "tree" and call it, or raises a CommandNotFoundError if the command
         can't be dispatched.
         """
+        command = list()
         route = route.split() # TODO support "" and keyword arguments
         if not route:
-            raise CommandNotFoundError('') # TODO better error reporting
+            raise CommandNotFoundError(command)
+        command.append(route[0])
         handler = self.routes.get(route[0], None)
+        if handler is None:
+            raise CommandNotFoundError(command)
         route = route[1:]
-        while not callable(handler):
-            if not route:
-                raise CommandNotFoundError('XXX') # TODO better error reporting
+        while not is_handler(handler):
+            if len(route) is 0:
+                raise CommandNotFoundError(command)
+            command.append(route[0])
             if not hasattr(handler, route[0]):
-                raise CommandNotFoundError(route[0]) # TODO better error rep.
+                raise CommandNotFoundError(command)
             handler = getattr(handler, route[0])
             route = route[1:]
         handler(*route)
@@ -99,16 +113,20 @@ class Dispatcher:
 
 if __name__ == '__main__':
 
+    @handler
     def test_func(*args):
           print 'func:', args
 
     class TestClassSubHandler:
+        @handler
         def subcmd(self, *args):
             print 'class.subclass.subcmd:', args
 
     class TestClass:
+        @handler
         def cmd1(self, *args):
             print 'class.cmd1:', args
+        @handler
         def cmd2(self, *args):
             print 'class.cmd2:', args
         subclass = TestClassSubHandler()
@@ -126,11 +144,11 @@ if __name__ == '__main__':
     except CommandNotFoundError, e:
         print 'Not found:', e
     try:
-        d.dispatch('sucutrule')
+        d.dispatch('sucutrule piquete culete')
     except CommandNotFoundError, e:
         print 'Not found:', e
     try:
-        d.dispatch('inst cmd3')
+        d.dispatch('inst cmd3 arg1 arg2 arg3')
     except CommandNotFoundError, e:
         print 'Not found:', e
 

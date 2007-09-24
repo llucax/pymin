@@ -7,6 +7,10 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
+try:
+    from dispatcher import handler
+except ImportError:
+    def handler(f): return f # NOP for testing
 
 __ALL__ = ('DhcpHandler',)
 
@@ -45,6 +49,7 @@ class HostHandler:
         r"Initialize HostHandler object, see class documentation for details."
         self.hosts = hosts
 
+    @handler
     def add(self, name, ip, mac):
         r"add(name, ip, mac) -> None :: Add a host to the hosts list."
         # XXX deberia indexar por hostname o por ip? o por mac? :)
@@ -52,6 +57,7 @@ class HostHandler:
         # nombres? Una MAC con muchas IP? una MAC con muchos nombre? Etc...
         self.hosts[name] = Host(name, ip, mac)
 
+    @handler
     def update(self, name, ip=None, mac=None):
         r"update(name[, ip[, mac]]) -> None :: Update a host of the hosts list."
         if not name in self.hosts:
@@ -61,12 +67,14 @@ class HostHandler:
         if mac is not None:
             self.hosts[name].mac = mac
 
+    @handler
     def delete(self, name):
         r"delete(name) -> None :: Delete a host of the hosts list."
         if not name in self.hosts:
             raise KeyError('Host not found')
         del self.hosts[name]
 
+    @handler
     def list(self):
         r"""list() -> CSV string :: List all the hostnames.
 
@@ -74,6 +82,7 @@ class HostHandler:
         """
         return ','.join(self.hosts)
 
+    @handler
     def show(self):
         r"""show() -> CSV string :: List all the complete hosts information.
 
@@ -121,12 +130,14 @@ class DhcpHandler:
             self._write_config()
         self.host = HostHandler(self.hosts)
 
+    @handler
     def set(self, param, value):
         r"set(param, value) -> None :: Set a DHCP parameter."
         if not param in self.vars:
             raise KeyError('Parameter ' + param + ' not found')
         self.vars[param] = value
 
+    @handler
     def list(self):
         r"""list() -> CSV string :: List all the parameter names.
 
@@ -134,6 +145,7 @@ class DhcpHandler:
         """
         return ','.join(self.vars)
 
+    @handler
     def show(self):
         r"""show() -> CSV string :: List all the parameters (with their values).
 
@@ -143,30 +155,35 @@ class DhcpHandler:
         """
         return '\n'.join(('%s,%s' % (k, v) for (k, v) in self.vars.items()))
 
+    @handler
     def start(self):
         r"start() -> None :: Start the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
+    @handler
     def stop(self):
         r"stop() -> None :: Stop the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
+    @handler
     def restart(self):
         r"restart() -> None :: Restart the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
+    @handler
     def reload(self):
         r"reload() -> None :: Reload the configuration of the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
+    @handler
     def commit(self):
         r"commit() -> None :: Commit the changes and reload the DHCP service."
         #esto seria para poner en una interfaz
@@ -176,6 +193,7 @@ class DhcpHandler:
         self._write_config()
         self.reload()
 
+    @handler
     def rollback(self):
         r"rollback() -> None :: Discard the changes not yet commited."
         self._load()

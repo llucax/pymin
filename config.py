@@ -1,8 +1,10 @@
 # vim: set et sts=4 sw=4 encoding=utf-8 :
 
 from services import *
+from dispatcher import handler
 
 # XXX for testing only
+@handler
 def test_func(*args):
     print 'func:', args
 
