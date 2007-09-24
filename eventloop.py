@@ -6,9 +6,18 @@ A simple event loop.
 Please see EventLoop class documentation for more info.
 """
 
-from select import poll, POLLIN, POLLPRI, POLLERR
+import select
+from select import POLLIN, POLLPRI, POLLERR
 
 __ALL__ = ('EventLoop')
+
+class LoopInterruptedError(RuntimeError):
+    def __init__(self, select_error):
+        self.select_error = select_error
+    def __repr__(self):
+        return 'LoopInterruptedError(select_error=%r)' % self.select_error
+    def __str__(self):
+        return 'Loop interrupted: %s' % self.select_error
 
 class EventLoop:
     r"""EventLoop(file[, handler]) -> EventLoop instance
@@ -53,7 +62,7 @@ class EventLoop:
 
         See EventLoop class documentation for more info.
         """
-        self.poll = poll()
+        self.poll = select.poll()
         self._stop = False
         self.__register(file)
         self.handler = handler
@@ -101,7 +110,10 @@ class EventLoop:
         then only 1 event is processed and then this method returns.
         """
         while True:
-            res = self.poll.poll()
+            try:
+                res = self.poll.poll()
+            except select.error, e:
+                raise LoopInterruptedError(e)
             if self.handler is not None:
                 self.handler(self)
             else:

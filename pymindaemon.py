@@ -11,7 +11,7 @@ command-line.
 import signal
 import socket
 from dispatcher import Dispatcher
-from eventloop import EventLoop
+from eventloop import EventLoop, LoopInterruptedError
 
 class PyminDaemon(EventLoop):
     r"""PyminDaemon(bind_addr, routes) -> PyminDaemon instance
@@ -68,7 +68,10 @@ class PyminDaemon(EventLoop):
 
     def run(self):
         r"run() -> None :: Run the event loop (shortcut to loop())"
-        return self.loop()
+        try:
+            return self.loop()
+        except LoopInterruptedError, e:
+            pass
 
 if __name__ == '__main__':
 
