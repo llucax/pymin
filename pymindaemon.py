@@ -47,7 +47,7 @@ class PyminDaemon(EventLoop):
         # Signal handling
         def quit(signum, frame):
             print "Shuting down ..."
-            loop.stop() # tell main event loop to stop
+            self.stop() # tell main event loop to stop
         def reload_config(signum, frame):
             print "Reloading configuration..."
             # TODO iterate handlers list propagating reload action
