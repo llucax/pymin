@@ -69,12 +69,6 @@ class PyminDaemon(EventLoop):
         else:
             response += '%d\n%s' % (len(str(result)), result)
         self.file.sendto(response, addr)
-        #try:
-        #    d.dispatch(msg)
-        #except dis.BadRouteError, inst:
-        #    sock.sendto('Bad route from : ' + inst.cmd + '\n', addr)
-        #except dis.CommandNotFoundError, inst:
-        #    sock.sendto('Command not found : ' + inst.cmd + '\n', addr)
 
     def run(self):
         r"run() -> None :: Run the event loop (shortcut to loop())"
