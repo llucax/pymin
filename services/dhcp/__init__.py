@@ -111,6 +111,12 @@ class Host:
         self.ip = ip
         self.mac = mac
 
+    def __iter__(self):
+        r"Iterate over a host."
+        yield self.name
+        yield self.ip
+        yield self.mac
+
 class HostHandler:
     r"""HostHandler(hosts) -> HostHandler instance :: Handle a list of hosts.
 
@@ -157,7 +163,7 @@ class HostHandler:
         if not name in self.hosts:
             raise HostNotFoundError(name)
         h = self.hosts[name]
-        return '%s,%s,%s' % (h.name, h.ip, h.mac)
+        return ','.join(list(h))
 
     @handler
     def list(self):
@@ -175,7 +181,7 @@ class HostHandler:
         hostname,ip,mac
         """
         hosts = self.hosts.values()
-        return '\n'.join('%s,%s,%s' % (h.name, h.ip, h.mac) for h in hosts)
+        return '\n'.join(','.join(h) for h in hosts)
 
 class DhcpHandler:
     r"""DhcpHandler([pickle_dir[, config_dir]]) -> DhcpHandler instance.
