@@ -43,6 +43,24 @@ class Sequence:
         return '%s%r' % (self.__class__.__name__, self.as_tuple())
 
 def as_tuple(obj):
+    r"""as_tuple(obj) -> tuple :: Convert objects to tuple.
+
+    This function returns a tuple for any object. If the object is
+    a string or any non-sequence object, it returns a tuple with the
+    single value. If the object is a sequece or a generator, it returns
+    the conversion to a tuple of it.
+
+    Example:
+
+    >>> print f("hello")
+    ('hello',)
+    >>> print f([1,2,3])
+    (1, 2, 3)
+    >>> print f([[1,2,3],[6,7,8]])
+    ([1, 2, 3], [6, 7, 8])
+    >>> print f(dict(a=1, b=2))
+    (('a', 1), ('b', 2))
+    """
     if isinstance(obj, basestring):
         return (obj,)
     if hasattr(obj, 'items'):
@@ -52,6 +70,21 @@ def as_tuple(obj):
     return (obj,)
 
 def as_table(obj):
+    r"""as_table(obj) -> tuple of tuples :: Convert objects to tuple of tuples.
+
+    This function returns a tuple of tuples for any object.
+
+    Example:
+
+    >>> print f("hello")
+    (('hello',),)
+    >>> print f([1,2,3])
+    ((1, 2, 3),)
+    >>> print f([[1,2,3],[6,7,8]])
+    ([1, 2, 3], [6, 7, 8])
+    >>> print f(dict(a=1, b=2))
+    (('a', 1), ('b', 2))
+    """
     obj = as_tuple(obj)
     for i in obj:
         if isinstance(i, basestring):
