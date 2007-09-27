@@ -7,6 +7,8 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
+
+import seqtools
 try:
     from dispatcher import handler
 except ImportError:
@@ -97,7 +99,7 @@ class ParameterNotFoundError(ParameterError):
         self.message = 'Parameter not found: "%s"' % paramname
 
 
-class Host:
+class Host(seqtools.Sequence):
     r"""Host(name, ip, mac) -> Host instance :: Class representing a host.
 
     name - Host name, should be a fully qualified name, but no checks are done.
@@ -111,11 +113,9 @@ class Host:
         self.ip = ip
         self.mac = mac
 
-    def __iter__(self):
-        r"Iterate over a host."
-        yield self.name
-        yield self.ip
-        yield self.mac
+    def as_tuple(self):
+        r"Return a tuple representing the host."
+        return (self.name, self.ip, self.mac)
 
 class HostHandler:
     r"""HostHandler(hosts) -> HostHandler instance :: Handle a list of hosts.
@@ -162,8 +162,7 @@ class HostHandler:
         """
         if not name in self.hosts:
             raise HostNotFoundError(name)
-        h = self.hosts[name]
-        return ','.join(list(h))
+        return self.hosts[name]
 
     @handler
     def list(self):
@@ -171,7 +170,7 @@ class HostHandler:
 
         The list is returned as a single CSV line with all the hostnames.
         """
-        return ','.join(self.hosts)
+        return self.hosts.keys()
 
     @handler
     def show(self):
@@ -180,8 +179,7 @@ class HostHandler:
         The hosts are returned as a CSV list with each host in a line, like:
         hostname,ip,mac
         """
-        hosts = self.hosts.values()
-        return '\n'.join(','.join(h) for h in hosts)
+        return self.hosts.values()
 
 class DhcpHandler:
     r"""DhcpHandler([pickle_dir[, config_dir]]) -> DhcpHandler instance.
@@ -241,7 +239,7 @@ class DhcpHandler:
 
         The list is returned as a single CSV line with all the names.
         """
-        return ','.join(self.vars)
+        return self.vars.keys()
 
     @handler
     def show(self):
@@ -251,7 +249,7 @@ class DhcpHandler:
         line, like:
         name,value
         """
-        return '\n'.join(('%s,%s' % (k, v) for (k, v) in self.vars.items()))
+        return self.vars.items()
 
     @handler
     def start(self):
