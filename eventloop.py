@@ -12,11 +12,27 @@ from select import POLLIN, POLLPRI, POLLERR
 __ALL__ = ('EventLoop')
 
 class LoopInterruptedError(RuntimeError):
+    r"""
+    LoopInterruptedError(select_error) -> LoopInterruptedError instance.
+
+    This class is raised when the event loop is interrupted in an unexpected
+    way. It wraps a select error, which can be accessed using the 'select_error'
+    attribute.
+    """
+
     def __init__(self, select_error):
+        r"""Initialize the object.
+
+        See the class documentation for more info.
+        """
         self.select_error = select_error
+
     def __repr__(self):
+        r"repr(obj) -> Object representation."
         return 'LoopInterruptedError(select_error=%r)' % self.select_error
+
     def __str__(self):
+        r"str(obj) -> String representation."
         return 'Loop interrupted: %s' % self.select_error
 
 class EventLoop:
