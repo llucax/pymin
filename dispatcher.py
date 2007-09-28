@@ -29,7 +29,6 @@ class HandlerError(Error):
     """
     pass
 
-
 class CommandNotFoundError(Error):
     r"""
     CommandNotFoundError(command) -> CommandNotFoundError instance
@@ -48,13 +47,59 @@ class CommandNotFoundError(Error):
     def __str__(self):
         return 'Command not found: "%s"' % ' '.join(self.command)
 
-def handler(f):
-    f._dispatcher_handler = True
-    return f
+def handler(help):
+    r"""handler(help) -> function wrapper :: Mark a callable as a handler.
+
+    This is a decorator to mark a callable object as a dispatcher handler.
+
+    help - Help string for the handler.
+    """
+    def wrapper(f):
+        if not help:
+            raise TypeError("'help' should not be empty")
+        f._dispatcher_help = help
+        return f
+    return wrapper
 
 def is_handler(handler):
-    return callable(handler) and hasattr(handler, '_dispatcher_handler') \
-            and handler._dispatcher_handler
+    r"is_handler(handler) -> bool :: Tell if a object is a handler."
+    return callable(handler) and hasattr(handler, '_dispatcher_help')
+
+def get_help(handler):
+    r"get_help(handler) -> unicode :: Get a handler's help string."
+    if not is_handler(handler):
+        raise TypeError("'%s' should be a handler" % handler.__name__)
+    return handler._dispatcher_help
+
+class Handler:
+    r"""Handler() -> Handler instance :: Base class for all dispatcher handlers.
+
+    All dispatcher handlers should inherit from this class to have some extra
+    commands, like help.
+    """
+
+    @handler(u'List available commands.')
+    def commands(self):
+        r"""commands() -> generator :: List the available commands."""
+        return (a for a in dir(self) if is_handler(getattr(self, a)))
+
+    @handler(u'Show available commands with their help.')
+    def help(self, command=None):
+        r"""help([command]) -> unicode/dict :: Show help on available commands.
+
+        If command is specified, it returns the help of that particular command.
+        If not, it returns a dictionary which keys are the available commands
+        and values are the help strings.
+        """
+        if command is None:
+            return dict((a, get_help(getattr(self, a)))
+                        for a in dir(self) if is_handler(getattr(self, a)))
+        if not hasattr(self, command):
+            raise CommandNotFoundError(command)
+        handler = getattr(self, command)
+        if not is_handler(handler):
+            raise CommandNotFoundError(command)
+        return get_help(handler)
 
 class Dispatcher:
     r"""Dispatcher([routes]) -> Dispatcher instance :: Command dispatcher
@@ -123,31 +168,37 @@ class Dispatcher:
 
 if __name__ == '__main__':
 
-    @handler
+    @handler(u"test: Print all the arguments, return nothing.")
     def test_func(*args):
-          print 'func:', args
+        print 'func:', args
 
-    class TestClassSubHandler:
-        @handler
+    class TestClassSubHandler(Handler):
+        @handler(u"subcmd: Print all the arguments, return nothing.")
         def subcmd(self, *args):
             print 'class.subclass.subcmd:', args
 
-    class TestClass:
-        @handler
+    class TestClass(Handler):
+        @handler(u"cmd1: Print all the arguments, return nothing.")
         def cmd1(self, *args):
             print 'class.cmd1:', args
-        @handler
+        @handler(u"cmd2: Print all the arguments, return nothing.")
         def cmd2(self, *args):
             print 'class.cmd2:', args
         subclass = TestClassSubHandler()
 
+    test_class = TestClass()
+
     d = Dispatcher(dict(
             func=test_func,
-            inst=TestClass(),
+            inst=test_class,
     ))
 
     d.dispatch('func arg1 arg2 arg3')
+    print 'inst commands:', tuple(d.dispatch('inst commands'))
+    print 'inst help:', d.dispatch('inst help')
     d.dispatch('inst cmd1 arg1 arg2 arg3 arg4')
+    d.dispatch('inst cmd2 arg1 arg2')
+    print 'inst subclass help:', d.dispatch('inst subclass help')
     d.dispatch('inst subclass subcmd arg1 arg2 arg3 arg4 arg5')
     try:
         d.dispatch('')
