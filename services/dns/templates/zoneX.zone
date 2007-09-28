@@ -1,0 +1,20 @@
+$TTL 1W
+@       IN      SOA     ${zone.name}. root.${zone.name}.  (
+                                      2002081601 ; Serial
+                                      28800      ; Refresh
+                                      14400      ; Retry
+                                      604800     ; Expire - 1 week
+                                      86400 )    ; Minimum
+
+% for ns in nss:
+@		IN      NS      ${ns.name}.
+% endfor
+
+% for mx in mxs:
+@       IN      MX    ${mx.prio}     ${mx.mx}.
+% endfor
+
+% for host in hosts:
+${host.name}.	IN	A	${host.ip}
+% endfor
+
