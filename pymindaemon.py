@@ -33,7 +33,7 @@ class PyminDaemon(eventloop.EventLoop):
     >>> PyminDaemon(('', 9999), dict(test=test_handler)).run()
     """
 
-    def __init__(self, bind_addr, routes):
+    def __init__(self, routes=dict(), bind_addr=('', 9999)):
         r"""Initialize the PyminDaemon object.
 
         See PyminDaemon class documentation for more info.
@@ -94,5 +94,5 @@ if __name__ == '__main__':
         print 'echo:', message
         return message
 
-    PyminDaemon(('', 9999), dict(test=test_handler, echo=echo_handler)).run()
+    PyminDaemon(dict(test=test_handler, echo=echo_handler)).run()
 
