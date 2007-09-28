@@ -18,6 +18,25 @@ class Error(RuntimeError):
     command - is the command that raised the exception, expressed as a list of
               paths (or subcommands).
     """
+    pass
+
+class HandlerError(Error):
+    r"""
+    HandlerError(command) -> HandlerError instance :: Base handlers exception.
+
+    All exceptions raised by the handlers should inherit from this one, so
+    dispatching errors could be separated from real programming errors (bugs).
+    """
+    pass
+
+
+class CommandNotFoundError(Error):
+    r"""
+    CommandNotFoundError(command) -> CommandNotFoundError instance
+
+    This exception is raised when the command received can't be dispatched
+    because there is no handlers to process it.
+    """
 
     def __init__(self, command):
         r"""Initialize the Error object.
@@ -28,15 +47,6 @@ class Error(RuntimeError):
 
     def __str__(self):
         return 'Command not found: "%s"' % ' '.join(self.command)
-
-class CommandNotFoundError(Error):
-    r"""
-    CommandNotFoundError(command) -> CommandNotFoundError instance
-
-    This exception is raised when the command received can't be dispatched
-    because there is no handlers to process it.
-    """
-    pass
 
 def handler(f):
     f._dispatcher_handler = True

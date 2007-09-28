@@ -8,11 +8,17 @@ try:
 except ImportError:
     import pickle
 
-import seqtools
 try:
-    from dispatcher import handler
+    from seqtools import Sequence
 except ImportError:
-    def handler(f): return f # NOP for testing
+    # NOP for testing
+    class Sequence: pass
+try:
+    from dispatcher import handler, HandlerError
+except ImportError:
+    # NOP for testing
+    class HandlerError(RuntimeError): pass
+    def handler(f): return f
 
 __ALL__ = ('DhcpHandler',)
 
@@ -24,7 +30,7 @@ config_filename = 'dhcpd.conf'
 
 template_dir = path.join(path.dirname(__file__), 'templates')
 
-class Error(RuntimeError):
+class Error(HandlerError):
     r"""
     Error(command) -> Error instance :: Base DhcpHandler exception class.
 
@@ -99,7 +105,7 @@ class ParameterNotFoundError(ParameterError):
         self.message = 'Parameter not found: "%s"' % paramname
 
 
-class Host(seqtools.Sequence):
+class Host(Sequence):
     r"""Host(name, ip, mac) -> Host instance :: Class representing a host.
 
     name - Host name, should be a fully qualified name, but no checks are done.

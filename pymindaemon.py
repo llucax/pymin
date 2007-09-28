@@ -65,8 +65,13 @@ class PyminDaemon(eventloop.EventLoop):
             if result is not None:
                 result = serializer.serialize(result)
             response = u'OK '
+        except dispatcher.Error, e:
+            result = unicode(e) + u'\n'
+            response = u'ERROR '
         except Exception, e:
-            result = unicode(e)
+            import traceback
+            result = u'Internal server error'
+            traceback.print_exc() # TODO logging!
             response = u'ERROR '
         if result is None:
             response += u'0'
