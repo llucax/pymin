@@ -10,10 +10,12 @@ command-line.
 
 import signal
 import socket
-from dispatcher import Dispatcher
-from eventloop import EventLoop, LoopInterruptedError
 
-class PyminDaemon(EventLoop):
+import dispatcher
+import eventloop
+import serializer
+
+class PyminDaemon(eventloop.EventLoop):
     r"""PyminDaemon(bind_addr, routes) -> PyminDaemon instance
 
     This class is well suited to run as a single process. It handles
@@ -31,7 +33,7 @@ class PyminDaemon(EventLoop):
     >>> PyminDaemon(('', 9999), dict(test=test_handler)).run()
     """
 
-    def __init__(self, bind_addr, routes):
+    def __init__(self, routes=dict(), bind_addr=('', 9999)):
         r"""Initialize the PyminDaemon object.
 
         See PyminDaemon class documentation for more info.
@@ -41,9 +43,9 @@ class PyminDaemon(EventLoop):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(bind_addr)
         # Create EventLoop
-        EventLoop.__init__(self, sock)
+        eventloop.EventLoop.__init__(self, sock)
         # Create Dispatcher
-        self.dispatcher = Dispatcher(routes)
+        self.dispatcher = dispatcher.Dispatcher(routes)
         # Signal handling
         def quit(signum, frame):
             print "Shuting down ..."
@@ -60,28 +62,42 @@ class PyminDaemon(EventLoop):
         (msg, addr) = self.file.recvfrom(65535)
         try:
             result = self.dispatcher.dispatch(msg)
-            response = 'OK '
+            if result is not None:
+                result = serializer.serialize(result)
+            response = u'OK '
+        except dispatcher.Error, e:
+            result = unicode(e) + u'\n'
+            response = u'ERROR '
         except Exception, e:
-            result = str(e)
-            response = 'ERROR '
+            import traceback
+            result = u'Internal server error'
+            traceback.print_exc() # TODO logging!
+            response = u'ERROR '
         if result is None:
-            response += '0'
+            response += u'0'
         else:
-            response += '%d\n%s' % (len(str(result)), result)
+            response += u'%d\n%s' % (len(result), result)
         self.file.sendto(response, addr)
 
     def run(self):
         r"run() -> None :: Run the event loop (shortcut to loop())"
         try:
             return self.loop()
-        except LoopInterruptedError, e:
+        except eventloop.LoopInterruptedError, e:
             pass
 
 if __name__ == '__main__':
+
+    from dispatcher import handler
 
     @handler
     def test_handler(*args):
         print 'test:', args
 
-    PyminDaemon(('', 9999), dict(test=test_handler)).run()
+    @handler
+    def echo_handler(message):
+        print 'echo:', message
+        return message
+
+    PyminDaemon(dict(test=test_handler, echo=echo_handler)).run()
 
