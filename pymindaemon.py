@@ -70,7 +70,7 @@ class PyminDaemon(eventloop.EventLoop):
             response = u'ERROR '
         except Exception, e:
             import traceback
-            result = u'Internal server error'
+            result = u'Internal server error\n'
             traceback.print_exc() # TODO logging!
             response = u'ERROR '
         if result is None:
