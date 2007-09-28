@@ -92,6 +92,8 @@ def as_table(obj):
         if hasattr(i, '__iter__'):
             return obj
         return (obj,)
+    else:
+        return ((),) # empty table
 
 
 if __name__ == '__main__':
@@ -127,4 +129,6 @@ if __name__ == '__main__':
         print f(B())
 
         print f(dict(a=1, b=2))
+
+        print f([])
 
