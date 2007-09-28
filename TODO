@@ -12,6 +12,8 @@ Ideas / TODO:
   ser muy simple y genérico y en caso de agregar funcionalidad no sea necesario
   modificarlo.
 
+* Agregar logging.
+
 Estas cosas quedan sujetas a necesitada y a definición del protocolo.
 Para mí lo ideal es que el protocolo de red sea igual que la consola del
 usuario, porque después de todo no va a ser más que eso, mandar comanditos.
