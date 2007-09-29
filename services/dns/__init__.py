@@ -1,5 +1,6 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
+# TODO COMMENT
 from mako.template import Template
 from mako.runtime import Context
 from os import path
@@ -9,10 +10,20 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
+
 try:
-    from dispatcher import handler
+    from seqtools import Sequence
 except ImportError:
+    # NOP for testing
+    class Sequence: pass
+
+try:
+    from dispatcher import handler, HandlerError
+except ImportError:
+    class HandlerError(RuntimeError): pass
     def handler(f): return f # NOP for testing
+
+
 
 __ALL__ = ('DnsHandler',)
 
@@ -28,12 +39,12 @@ zone_filename_ext = '.zone'
 template_dir = path.join(path.dirname(__file__), 'templates')
 
 
-class Error(RuntimeError):
+class Error(HandlerError):
     r"""
-    Error(command) -> Error instance :: Base DhcpHandler exception class.
+    Error(command) -> Error instance :: Base DnsHandler exception class.
 
-    All exceptions raised by the DhcpHandler inherits from this one, so you can
-    easily catch any DhcpHandler exception.
+    All exceptions raised by the DnsHandler inherits from this one, so you can
+    easily catch any DnsHandler exception.
 
     message - A descriptive error message.
     """
@@ -47,7 +58,7 @@ class Error(RuntimeError):
 
 class ZoneError(Error, KeyError):
     r"""
-    ZoneError(hostname) -> ZoneError instance
+    ZoneError(zonename) -> ZoneError instance
 
     This is the base exception for all zone related errors.
     """
@@ -59,15 +70,15 @@ class ZoneError(Error, KeyError):
 
 class ZoneNotFoundError(ZoneError):
     r"""
-    ZoneNotFoundError(zonename) -> ZoneNotFoundError instance
+    ZoneNotFoundError(hostname) -> ZoneNotFoundError instance
 
-    This exception is raised when trying to operate on a zonename that doesn't
+    This exception is raised when trying to operate on a zone that doesn't
     exists.
     """
 
-    def __init__(self, hostname):
+    def __init__(self, zonename):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'zone not found: "%s"' % hostname
+        self.message = 'zone not found: "%s"' % zonename
 
 
 class ZoneAlreadyExistsError(ZoneError):
@@ -119,31 +130,33 @@ class HostNotFoundError(HostError):
 
 class MailExchangeError(Error, KeyError):
     r"""
-    HostError(hostname) -> HostError instance
+    MailExchangeError(hostname) -> MailExchangeError instance
 
-    This is the base exception for all host related errors.
+    This is the base exception for all mail exchange related errors.
     """
 
     def __init__(self, mx):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Mail Exchange error: "%s"' % mx
 
+
 class MailExchangeAlreadyExistsError(MailExchangeError):
     r"""
-    HostAlreadyExistsError(hostname) -> HostAlreadyExistsError instance
+    MailExchangeAlreadyExistsError(hostname) -> MailExchangeAlreadyExistsError instance
 
-    This exception is raised when trying to add a hostname that already exists.
+    This exception is raised when trying to add a mail exchange that already exists.
     """
 
     def __init__(self, mx):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Mail Exchange already exists: "%s"' % mx
 
+
 class MailExchangeNotFoundError(MailExchangeError):
     r"""
-    HostNotFoundError(hostname) -> HostNotFoundError instance
+    MailExchangeNotFoundError(hostname) -> MailExchangeNotFoundError instance
 
-    This exception is raised when trying to operate on a hostname that doesn't
+    This exception is raised when trying to operate on a mail exchange that doesn't
     exists.
     """
 
@@ -155,9 +168,9 @@ class MailExchangeNotFoundError(MailExchangeError):
 
 class NameServerError(Error, KeyError):
     r"""
-    HostError(hostname) -> HostError instance
+    NameServerError(ns) -> NameServerError instance
 
-    This is the base exception for all host related errors.
+    This is the base exception for all name server related errors.
     """
 
     def __init__(self, ns):
@@ -166,20 +179,20 @@ class NameServerError(Error, KeyError):
 
 class NameServerAlreadyExistsError(NameServerError):
     r"""
-    HostAlreadyExistsError(hostname) -> HostAlreadyExistsError instance
+    NameServerAlreadyExistsError(hostname) -> NameServerAlreadyExistsError instance
 
-    This exception is raised when trying to add a hostname that already exists.
+    This exception is raised when trying to add a name server that already exists.
     """
 
     def __init__(self, ns):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Mail Exchange already exists: "%s"' % ns
+        self.message = 'Name server already exists: "%s"' % ns
 
 class NameServerNotFoundError(NameServerError):
     r"""
-    HostNotFoundError(hostname) -> HostNotFoundError instance
+    NameServerNotFoundError(hostname) -> NameServerNotFoundError instance
 
-    This exception is raised when trying to operate on a hostname that doesn't
+    This exception is raised when trying to operate on a name server that doesn't
     exists.
     """
 
@@ -211,10 +224,13 @@ class ParameterNotFoundError(ParameterError):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Parameter not found: "%s"' % paramname
 
-class Host:
+class Host(Sequence):
     def __init__(self, name, ip):
         self.name = name
         self.ip = ip
+
+    def as_tuple(self):
+        return (self.name, self.ip)
 
 class HostHandler:
     def __init__(self,zones):
@@ -240,7 +256,6 @@ class HostHandler:
 
     @handler
     def delete(self, name, hostname):
-        r"delete(name) -> None :: Delete a zone from the zone list."
         if not name in self.zones:
             raise ZoneNotFoundError(name)
         if not hostname in self.zones[name].hosts:
@@ -250,31 +265,21 @@ class HostHandler:
 
     @handler
     def list(self):
-        r"""list() -> CSV string :: List all the hostnames.
-
-        The list is returned as a single CSV line with all the hostnames.
-        """
-        #return ','.join(self.zones)
+        return self.zones.keys()
 
     @handler
     def show(self):
-        r"""show() -> CSV string :: List all the complete hosts information.
-
-        The hosts are returned as a CSV list with each host in a line, like:
-        hostname,ip,mac
-        """
-        output = ''
-        for z in self.zones.values():
-            for h in z.hosts.values():
-                output += z.name + ',' + h.name + ',' + h.ip + '\n'
-        return output
+        return self.zones.values()
 
 
-class MailExchange:
+class MailExchange(Sequence):
 
     def __init__(self, mx, prio):
         self.mx = mx
         self.prio = prio
+
+    def as_tuple(self):
+        return (self.mx, self.prio)
 
 class MailExchangeHandler:
 
@@ -310,34 +315,27 @@ class MailExchangeHandler:
 
     @handler
     def list(self):
-        r"""list() -> CSV string :: List all the hostnames.
-
-        The list is returned as a single CSV line with all the hostnames.
-        """
-        return ','.join(self.zones)
+        return self.zones.keys()
 
     @handler
     def show(self):
-        r"""show() -> CSV string :: List all the complete hosts information.
-
-        The hosts are returned as a CSV list with each host in a line, like:
-        hostname,ip,mac
-        """
-        zones = self.zones.values()
-        return '\n'.join('%s,%s,%s' % (z.name, z.ns1, z.ns2) for z in zones)
+        return self.zones.values()
 
 
-class NameServer:
+class NameServer(Sequence):
 
     def __init__(self, name):
         self.name = name
 
+    def as_tuple(self):
+        return (self.name)
 
 class NameServerHandler:
 
     def __init__(self, zones):
         self.zones = zones
 
+    @handler
     def add(self, zone, ns):
         if not zone in self.zones:
             raise ZoneNotFoundError(zone)
@@ -346,6 +344,7 @@ class NameServerHandler:
         self.zones[zone].nss[ns] = NameServer(ns)
         self.zones[zone].mod = True
 
+    @handler
     def delete(self, zone, ns):
         if not zone in self.zones:
             raise ZoneNotFoundError(zone)
@@ -354,16 +353,27 @@ class NameServerHandler:
         del self.zones[zone].nss[ns]
         self.zones[zone].mod = True
 
-class Zone:
-    def __init__(self, name, ns1, ns2):
+    @handler
+    def list(self):
+        return self.zones.keys()
+
+    @handler
+    def show(self):
+        return self.zones.values()
+
+
+class Zone(Sequence):
+    def __init__(self, name):
         self.name = name
-        self.ns1 = ns1
-        self.ns2 = ns2
         self.hosts = dict()
         self.mxs = dict()
         self.nss = dict()
+        self.new = False
         self.mod = False
         self.dele = False
+
+    def as_tuple(self):
+        return (self.name, self.hosts, self.mxs, self.nss)
 
 class ZoneHandler:
 
@@ -378,23 +388,13 @@ class ZoneHandler:
         self.zones = zones
 
     @handler
-    def add(self, name, ns1, ns2=None):
+    def add(self, name):
         if name in self.zones:
             raise ZoneAlreadyExistsError(name)
-        self.zones[name] = Zone(name, ns1, ns2)
+        self.zones[name] = Zone(name)
         self.zones[name].mod = True
+        self.zones[name].new = True
 
-    @handler
-    def update(self, name, ns1=None, ns2=None):
-        if not name in self.zones:
-            raise ZoneNotFoundError(name)
-        if self.zones[name].dele:
-            raise ZoneNotFoundError(name)
-        if ns1 is not None:
-            self.zones[name].ns1 = ns1
-        if ns2 is not None:
-            self.zones[name].ns2 = ns2
-        self.zones[name].mod = True
 
     @handler
     def delete(self, name):
@@ -405,21 +405,11 @@ class ZoneHandler:
 
     @handler
     def list(self):
-        r"""list() -> CSV string :: List all the hostnames.
-
-        The list is returned as a single CSV line with all the hostnames.
-        """
-        return ','.join(self.zones)
+        return self.zones.keys()
 
     @handler
     def show(self):
-        r"""show() -> CSV string :: List all the complete hosts information.
-
-        The hosts are returned as a CSV list with each host in a line, like:
-        hostname,ip,mac
-        """
-        zones = self.zones.values()
-        return '\n'.join('%s,%s,%s' % (z.name, z.ns1, z.ns2) for z in zones)
+        return self.zones.values()
 
 class DnsHandler:
     r"""DnsHandler([pickle_dir[, config_dir]]) -> DnsHandler instance.
@@ -456,38 +446,30 @@ class DnsHandler:
         self.zone = ZoneHandler(self.zones)
         self.mx = MailExchangeHandler(self.zones)
         self.ns = NameServerHandler(self.zones)
+        self.mod = False
 
     @handler
     def set(self, param, value):
-        r"set(param, value) -> None :: Set a DHCP parameter."
+        r"set(param, value) -> None :: Set a DNS parameter."
         if not param in self.vars:
             raise ParameterNotFoundError(param)
         self.vars[param] = value
+        self.mod = True
 
     @handler
     def get(self, param):
-        r"get(param) -> None :: Get a DHCP parameter."
+        r"get(param) -> None :: Get a DNS parameter."
         if not param in self.vars:
             raise ParameterNotFoundError(param)
         return self.vars[param]
 
     @handler
     def list(self):
-        r"""list() -> CSV string :: List all the parameter names.
-
-        The list is returned as a single CSV line with all the names.
-        """
-        return ','.join(self.vars)
+        return self.vars.keys()
 
     @handler
     def show(self):
-        r"""show() -> CSV string :: List all the parameters (with their values).
-
-        The parameters are returned as a CSV list with each parameter in a
-        line, like:
-        name,value
-        """
-        return '\n'.join(('%s,%s' % (k, v) for (k, v) in self.vars.items()))
+        return self.vars.values()
 
     @handler
     def start(self):
@@ -569,7 +551,9 @@ class DnsHandler:
         delete_zones = list()
         for a_zone in self.zones.values():
             if a_zone.mod:
-                # TODO freeze de la zona
+                if not a_zone.new:
+                    # TODO freeze de la zona
+                    print 'Freezing zone ' + a_zone.name + zone_filename_ext
                 zone_out_file = file(path.join(self.config_dir, a_zone.name + zone_filename_ext), 'w')
                 ctx = Context(
                     zone_out_file,
@@ -581,10 +565,16 @@ class DnsHandler:
                 self.zone_template.render_context(ctx)
                 zone_out_file.close()
                 a_zone.mod = False
-                # TODO unfreeze de la zona
+                if not a_zone.new:
+                    # TODO unfreeze de la zona
+                    print 'Unfreezing zone ' + a_zone.name + zone_filename_ext
+                else :
+                    self.mod = True
+                    a_zone.new = False
             if a_zone.dele:
                 #borro el archivo .zone
                 try:
+                    self.mod = True
                     unlink(path.join(self.config_dir, a_zone.name + zone_filename_ext))
                 except OSError:
                     #la excepcion pude darse en caso que haga un add de una zona y
@@ -595,10 +585,13 @@ class DnsHandler:
         for z in delete_zones:
             del self.zones[z]
         #archivo general
-        cfg_out_file = file(path.join(self.config_dir, config_filename), 'w')
-        ctx = Context(cfg_out_file, zones=self.zones.values(), **self.vars)
-        self.config_template.render_context(ctx)
-        cfg_out_file.close()
+        if self.mod :
+            cfg_out_file = file(path.join(self.config_dir, config_filename), 'w')
+            ctx = Context(cfg_out_file, zones=self.zones.values(), **self.vars)
+            self.config_template.render_context(ctx)
+            cfg_out_file.close()
+            self.mod = False
+            print 'Restarting service'
 
 
 
@@ -608,8 +601,8 @@ if __name__ == '__main__':
 
     dns.set('isp_dns1','la_garcha.com')
     dns.set('bind_addr1','localhost')
-    dns.zone.add('zona_loca.com','ns1,dom.com','ns2.dominio.com')
-    dns.zone.update('zona_loca.com','ns1.dominio.com')
+    dns.zone.add('zona_loca.com')
+    #dns.zone.update('zona_loca.com','ns1.dominio.com')
 
     dns.host.add('zona_loca.com','hostname_loco','192.168.0.23')
     dns.host.update('zona_loca.com','hostname_loco','192.168.0.66')
@@ -632,7 +625,7 @@ if __name__ == '__main__':
     dns.ns.add('zona_loca.com','ns3.jua.com')
     dns.ns.delete('zona_loca.com','ns3.jua.com')
 
-    dns.zone.add('zona_oscura','ns1.lala.com')
+    dns.zone.add('zona_oscura')
 
     dns.host.add('zona_oscura','hostname_a','192.168.0.24')
     dns.host.add('zona_oscura','hostname_b','192.168.0.25')

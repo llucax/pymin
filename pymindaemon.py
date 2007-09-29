@@ -74,7 +74,7 @@ class PyminDaemon(eventloop.EventLoop):
             traceback.print_exc() # TODO logging!
             response = u'ERROR '
         if result is None:
-            response += u'0'
+            response += u'0\n'
         else:
             response += u'%d\n%s' % (len(result), result)
         self.file.sendto(response, addr)
