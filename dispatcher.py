@@ -1,16 +1,17 @@
 # vim: set et sts=4 sw=4 encoding=utf-8 :
 
-r"""
-Command dispatcher.
+r"""Command dispatcher.
 
 This module provides a convenient and extensible command dispatching mechanism.
 It's based on Zope or Cherrypy dispatching (but implemented from the scratch)
 and translates commands to functions/objects/methods.
 """
 
+__ALL__ = ('Error', 'HandlerError', 'CommandNotFoundError', 'Handler',
+            'Dispatcher', 'handler', 'is_handler', 'get_help')
+
 class Error(RuntimeError):
-    r"""
-    Error(command) -> Error instance :: Base dispatching exceptions class.
+    r"""Error(command) -> Error instance :: Base dispatching exceptions class.
 
     All exceptions raised by the Dispatcher inherits from this one, so you can
     easily catch any dispatching exception.
@@ -21,31 +22,61 @@ class Error(RuntimeError):
     pass
 
 class HandlerError(Error):
-    r"""
-    HandlerError(command) -> HandlerError instance :: Base handlers exception.
+    r"""HandlerError(command) -> HandlerError instance :: Base handlers error.
 
     All exceptions raised by the handlers should inherit from this one, so
     dispatching errors could be separated from real programming errors (bugs).
     """
     pass
 
-class CommandNotFoundError(Error):
-    r"""
-    CommandNotFoundError(command) -> CommandNotFoundError instance
+class CommandError(Error):
+    r"""CommandError(command) -> CommandError instance :: Base command error.
+
+    This exception is raised when there's a problem with the command itself.
+    It's the base class for all command (as a string) related error.
+    """
+
+    def __init__(self, command):
+        r"""Initialize the object.
+
+        See class documentation for more info.
+        """
+        self.command = command
+
+    def __str__(self):
+        return 'Command error: "%s"' % self.command
+
+class CommandNotFoundError(CommandError):
+    r"""CommandNotFoundError(command) -> CommandNotFoundError instance.
 
     This exception is raised when the command received can't be dispatched
     because there is no handlers to process it.
     """
 
-    def __init__(self, command):
-        r"""Initialize the Error object.
+    def __str__(self):
+        return 'Command not found: "%s"' % ' '.join(
+                                                repr(c) for c in self.command)
 
-        See Error class documentation for more info.
+class ParseError(CommandError):
+    r"""ParseError(command[, desc]) -> ParseError instance
+
+    This exception is raised when there is an error parsing a command.
+
+    command - Command that can't be parsed.
+
+    desc - Description of the error.
+    """
+
+    def __init__(self, command, desc="can't parse"):
+        r"""Initialize the object.
+
+        See class documentation for more info.
         """
         self.command = command
+        self.desc = desc
 
     def __str__(self):
-        return 'Command not found: "%s"' % ' '.join(self.command)
+        return 'Syntax error, %s: %s' % (self.desc, self.command)
 
 def handler(help):
     r"""handler(help) -> function wrapper :: Mark a callable as a handler.
@@ -101,6 +132,146 @@ class Handler:
             raise CommandNotFoundError(command)
         return get_help(handler)
 
+def parse_command(command):
+    r"""parse_command(command) -> (args, kwargs) :: Parse a command.
+
+    This function parses a command and split it into a list of parameters. It
+    has a similar to bash commandline parser. Spaces are the basic token
+    separator but you can group several tokens into one by using (single or
+    double) quotes. You can escape the quotes with a backslash (\' and \"),
+    express a backslash literal using a double backslash (\\), use special
+    meaning escaped sequences (like \a, \n, \r, \b, \v) and use unescaped
+    single quotes inside a double quoted token or vice-versa.
+
+    Additionally it accepts keyword arguments. When an (not-escaped) equal
+    sign (=) is found, the argument is considered a keyword, and the next
+    argument it's interpreted as its value.
+
+    This function returns a tuple containing a list and a dictionary. The
+    first has the positional arguments, the second, the keyword arguments.
+
+    There is no restriction about the order, a keyword argument can be
+    followed by a positional argument and vice-versa. All type of arguments
+    are grouped in the list/dict returned. The order of the positional
+    arguments is preserved and if there are multiple keyword arguments with
+    the same key, the last value is the winner (all other values are lost).
+
+    Examples:
+
+    >>> parse_command('hello world')
+    ([u'hello', u'world'], {})
+    >>> parse_command('hello planet=earth')
+    ([u'hello'], {u'planet': u'earth'})
+    >>> parse_command('hello planet="third rock from the sun"')
+    ([u'hello'], {u'planet': u'third rock from the sun'})
+    >>> parse_command(u'  planet="third rock from the sun" hello ')
+    ([u'hello'], {u'planet': u'third rock from the sun'})
+    >>> parse_command(u'  planet="third rock from the sun" "hi, hello"'
+            '"how are you" ')
+    ([u'hi, hello', u'how are you'], {u'planet': u'third rock from the sun'})
+    >>> parse_command(u'one two three "fourth number"=four')
+    ([u'one', u'two', u'three'], {u'fourth number': u'four'})
+    >>> parse_command(u'one two three "fourth number=four"')
+    ([u'one', u'two', u'three', u'fourth number=four'], {})
+    >>> parse_command(u'one two three fourth\=four')
+    ([u'one', u'two', u'three', u'fourth=four'], {})
+    >>> parse_command(u'one two three fourth=four=five')
+    ([u'one', u'two', u'three'], {u'fourth': u'four=five'})
+    >>> parse_command(ur'nice\nlong\n\ttext')
+    ([u'nice\nlong\n\ttext'], {})
+    >>> parse_command('=hello')
+    ([u'=hello'], {})
+
+    This examples are syntax errors:
+    Missing quote: "hello world
+    Missing value: hello=
+    """
+    SEP, TOKEN, DQUOTE, SQUOTE, EQUAL = u' ', None, u'"', u"'", u'=' # states
+    separators = (u' ', u'\t', u'\v', u'\n') # token separators
+    escaped_chars = (u'a', u'n', u'r', u'b', u'v', u't') # escaped sequences
+    seq = []
+    dic = {}
+    buff = u''
+    escape = False
+    keyword = None
+    state = SEP
+    for c in command:
+        # Escaped character
+        if escape:
+            for e in escaped_chars:
+                if c == e:
+                    buff += eval(u'"\\' + e + u'"')
+                    break
+            else:
+                buff += c
+            escape = False
+            continue
+        # Escaped sequence start
+        if c == u'\\':
+            escape = True
+            continue
+        # Looking for spaces
+        if state == SEP:
+            if c in separators:
+                continue
+            if buff:
+                if c == EQUAL: # Keyword found
+                    keyword = buff
+                    buff = u''
+                    continue
+                if keyword is not None: # Value found
+                    dic[str(keyword)] = buff
+                    keyword = None
+                else: # Normal parameter found
+                    seq.append(buff)
+                buff = u''
+            state = TOKEN
+        # Getting a token
+        if state == TOKEN:
+            if c == DQUOTE:
+                state = DQUOTE
+                continue
+            if c == SQUOTE:
+                state = SQUOTE
+                continue
+            # Check if a keyword is added
+            if c == EQUAL and keyword is None and buff:
+                keyword = buff
+                buff = u''
+                state = SEP
+                continue
+            if c in separators:
+                state = SEP
+                continue
+            buff += c
+            continue
+        # Inside a double quote
+        if state == DQUOTE:
+            if c == DQUOTE:
+                state = TOKEN
+                continue
+            buff += c
+            continue
+        # Inside a single quote
+        if state == SQUOTE:
+            if c == SQUOTE:
+                state = TOKEN
+                continue
+            buff += c
+            continue
+        assert 0, u'Unexpected state'
+    if state == DQUOTE or state == SQUOTE:
+        raise ParseError(command, u'missing closing quote (%s)' % state)
+    if not buff and keyword is not None:
+        raise ParseError(command,
+                        u'keyword argument (%s) without value' % keyword)
+    if buff:
+        if keyword is not None:
+            dic[str(keyword)] = buff
+        else:
+            seq.append(buff)
+    return (seq, dic)
+
 class Dispatcher:
     r"""Dispatcher([routes]) -> Dispatcher instance :: Command dispatcher
 
@@ -119,7 +290,7 @@ class Dispatcher:
 
     Example:
     >>> d = Dispatcher(dict(handler=some_handler))
-    >>> d.dispatch('handler attribute method arg1 arg2')
+    >>> d.dispatch('handler attribute method arg1 arg2 "third argument"')
 
     If 'some_handler' is an object with an 'attribute' that is another
     object which has a method named 'method', then
@@ -147,7 +318,7 @@ class Dispatcher:
         can't be dispatched.
         """
         command = list()
-        route = route.split() # TODO support "" and keyword arguments
+        (route, kwargs) = parse_command(route)
         if not route:
             raise CommandNotFoundError(command)
         command.append(route[0])
@@ -163,7 +334,7 @@ class Dispatcher:
                 raise CommandNotFoundError(command)
             handler = getattr(handler, route[0])
             route = route[1:]
-        return handler(*route)
+        return handler(*route, **kwargs)
 
 
 if __name__ == '__main__':
@@ -193,7 +364,7 @@ if __name__ == '__main__':
             inst=test_class,
     ))
 
-    d.dispatch('func arg1 arg2 arg3')
+    d.dispatch(r'''func arg1 arg2 arg3 "fourth 'argument' with \", a\ttab and\n\\n"''')
     print 'inst commands:', tuple(d.dispatch('inst commands'))
     print 'inst help:', d.dispatch('inst help')
     d.dispatch('inst cmd1 arg1 arg2 arg3 arg4')
@@ -212,4 +383,26 @@ if __name__ == '__main__':
         d.dispatch('inst cmd3 arg1 arg2 arg3')
     except CommandNotFoundError, e:
         print 'Not found:', e
+
+    # Parser tests
+    print parse_command('hello world')
+    print parse_command('hello planet=earth')
+    print parse_command('hello planet="third rock from the sun"')
+    print parse_command(u'  planet="third rock from the sun" hello ')
+    print parse_command(u'  planet="third rock from the sun" "hi, hello"'
+                                                            '"how are you" ')
+    print parse_command(u'one two three "fourth number"=four')
+    print parse_command(u'one two three "fourth number=four"')
+    print parse_command(u'one two three fourth\=four')
+    print parse_command(u'one two three fourth=four=five')
+    print parse_command(ur'nice\nlong\n\ttext')
+    print parse_command('=hello')
+    try:
+        parse_command('hello=')
+    except ParseError, e:
+        print e
+    try:
+        parse_command('"hello')
+    except ParseError, e:
+        print e
 

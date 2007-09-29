@@ -1,13 +1,6 @@
 
 Ideas / TODO:
 
-* Soportar comillas para argumentos con espacios y otros caracteres, onda:
-  'misc set motd "Hola!\nEste es el servidor de garombia"'
-
-* Soportar keyword arguments, onda que:
-  'dns set pepe=10.10.10.1 juan=10.10.10.2'
-  se mapee a algo como: dns.set(pepe='10.10.10.1', juan='10.10.10.2')
-
 * Hacer el protocolo completamente introspectivo, de manera que el cliente pueda
   ser muy simple y genérico y en caso de agregar funcionalidad no sea necesario
   modificarlo.
