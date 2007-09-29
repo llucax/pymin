@@ -24,7 +24,8 @@ except ImportError:
             return f
         return wrapper
 
-__ALL__ = ('DhcpHandler',)
+__ALL__ = ('DhcpHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
+            'HostNotFoundError', 'ParameterError', 'ParameterNotFoundError')
 
 pickle_ext = '.pkl'
 pickle_vars = 'vars'
