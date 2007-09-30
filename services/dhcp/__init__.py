@@ -37,7 +37,7 @@ template_dir = path.join(path.dirname(__file__), 'templates')
 
 class Error(HandlerError):
     r"""
-    Error(command) -> Error instance :: Base DhcpHandler exception class.
+    Error(message) -> Error instance :: Base DhcpHandler exception class.
 
     All exceptions raised by the DhcpHandler inherits from this one, so you can
     easily catch any DhcpHandler exception.
