@@ -1,0 +1,1 @@
+ip route del dev ${dev} ${net_addr}/${net_prefix_length}

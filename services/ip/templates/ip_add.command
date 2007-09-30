@@ -1,0 +1,1 @@
+ip addr add dev ${dev} ${addr}/${prefix} broadcast ${broadcast}

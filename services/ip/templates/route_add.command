@@ -1,0 +1,1 @@
+ip route add dev ${dev} ${net_addr}/${prefix} via ${gateway}

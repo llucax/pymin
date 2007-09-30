@@ -1,0 +1,1 @@
+ip link set dev ${dev} ${action}
