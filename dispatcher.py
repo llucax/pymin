@@ -141,7 +141,9 @@ def parse_command(command):
     double) quotes. You can escape the quotes with a backslash (\' and \"),
     express a backslash literal using a double backslash (\\), use special
     meaning escaped sequences (like \a, \n, \r, \b, \v) and use unescaped
-    single quotes inside a double quoted token or vice-versa.
+    single quotes inside a double quoted token or vice-versa. A special escape
+    sequence is provided to express a NULL/None value: \N and it should appear
+    always as a separated token.
 
     Additionally it accepts keyword arguments. When an (not-escaped) equal
     sign (=) is found, the argument is considered a keyword, and the next
@@ -161,26 +163,38 @@ def parse_command(command):
     >>> parse_command('hello world')
     ([u'hello', u'world'], {})
     >>> parse_command('hello planet=earth')
-    ([u'hello'], {u'planet': u'earth'})
+    ([u'hello'], {'planet': u'earth'})
     >>> parse_command('hello planet="third rock from the sun"')
-    ([u'hello'], {u'planet': u'third rock from the sun'})
+    ([u'hello'], {'planet': u'third rock from the sun'})
     >>> parse_command(u'  planet="third rock from the sun" hello ')
-    ([u'hello'], {u'planet': u'third rock from the sun'})
+    ([u'hello'], {'planet': u'third rock from the sun'})
     >>> parse_command(u'  planet="third rock from the sun" "hi, hello"'
             '"how are you" ')
-    ([u'hi, hello', u'how are you'], {u'planet': u'third rock from the sun'})
+    ([u'hi, hello', u'how are you'], {'planet': u'third rock from the sun'})
     >>> parse_command(u'one two three "fourth number"=four')
-    ([u'one', u'two', u'three'], {u'fourth number': u'four'})
+    ([u'one', u'two', u'three'], {'fourth number': u'four'})
     >>> parse_command(u'one two three "fourth number=four"')
     ([u'one', u'two', u'three', u'fourth number=four'], {})
     >>> parse_command(u'one two three fourth\=four')
     ([u'one', u'two', u'three', u'fourth=four'], {})
     >>> parse_command(u'one two three fourth=four=five')
-    ([u'one', u'two', u'three'], {u'fourth': u'four=five'})
+    ([u'one', u'two', u'three'], {'fourth': u'four=five'})
     >>> parse_command(ur'nice\nlong\n\ttext')
     ([u'nice\nlong\n\ttext'], {})
     >>> parse_command('=hello')
     ([u'=hello'], {})
+    >>> parse_command(r'\thello')
+    ([u'\thello'], {})
+    >>> parse_command(r'\N')
+    ([None], {})
+    >>> parse_command(r'none=\N')
+    ([], {'none': None})
+    >>> parse_command(r'\N=none')
+    ([], {'\\N': 'none'})
+    >>> parse_command(r'Not\N')
+    ([u'Not\\N'], {})
+    >>> parse_command(r'\None')
+    ([u'\\None'], {})
 
     This examples are syntax errors:
     Missing quote: "hello world
@@ -203,7 +217,10 @@ def parse_command(command):
                     buff += eval(u'"\\' + e + u'"')
                     break
             else:
-                buff += c
+                if c == 'N':
+                    buff += r'\N'
+                else:
+                    buff += c
             escape = False
             continue
         # Escaped sequence start
@@ -214,11 +231,13 @@ def parse_command(command):
         if state == SEP:
             if c in separators:
                 continue
-            if buff and n != 2: # First item, not a escape sequence
+            if buff and n != 2: # Not the first item (even if was a escape seq)
                 if c == EQUAL: # Keyword found
                     keyword = buff
                     buff = u''
                     continue
+                if buff == r'\N':
+                    buff = None
                 if keyword is not None: # Value found
                     dic[str(keyword)] = buff
                     keyword = None
@@ -266,6 +285,8 @@ def parse_command(command):
         raise ParseError(command,
                         u'keyword argument (%s) without value' % keyword)
     if buff:
+        if buff == r'\N':
+            buff = None
         if keyword is not None:
             dic[str(keyword)] = buff
         else:
@@ -385,24 +406,52 @@ if __name__ == '__main__':
         print 'Not found:', e
 
     # Parser tests
-    print parse_command('hello world')
-    print parse_command('hello planet=earth')
-    print parse_command('hello planet="third rock from the sun"')
-    print parse_command(u'  planet="third rock from the sun" hello ')
-    print parse_command(u'  planet="third rock from the sun" "hi, hello"'
-                                                            '"how are you" ')
-    print parse_command(u'one two three "fourth number"=four')
-    print parse_command(u'one two three "fourth number=four"')
-    print parse_command(u'one two three fourth\=four')
-    print parse_command(u'one two three fourth=four=five')
-    print parse_command(ur'nice\nlong\n\ttext')
-    print parse_command('=hello')
+    p = parse_command('hello world')
+    assert p == ([u'hello', u'world'], {}), p
+    p = parse_command('hello planet=earth')
+    assert p  == ([u'hello'], {'planet': u'earth'}), p
+    p = parse_command('hello planet="third rock from the sun"')
+    assert p == ([u'hello'], {'planet': u'third rock from the sun'}), p
+    p = parse_command(u'  planet="third rock from the sun" hello ')
+    assert p == ([u'hello'], {'planet': u'third rock from the sun'}), p
+    p = parse_command(u'  planet="third rock from the sun" "hi, hello" '
+                            '"how are you" ')
+    assert p == ([u'hi, hello', u'how are you'],
+                {'planet': u'third rock from the sun'}), p
+    p = parse_command(u'one two three "fourth number"=four')
+    assert p == ([u'one', u'two', u'three'], {'fourth number': u'four'}), p
+    p = parse_command(u'one two three "fourth number=four"')
+    assert p == ([u'one', u'two', u'three', u'fourth number=four'], {}), p
+    p = parse_command(u'one two three fourth\=four')
+    assert p == ([u'one', u'two', u'three', u'fourth=four'], {}), p
+    p = parse_command(u'one two three fourth=four=five')
+    assert p == ([u'one', u'two', u'three'], {'fourth': u'four=five'}), p
+    p = parse_command(ur'nice\nlong\n\ttext')
+    assert p == ([u'nice\nlong\n\ttext'], {}), p
+    p = parse_command('=hello')
+    assert p == ([u'=hello'], {}), p
+    p = parse_command(r'\thello')
+    assert p == ([u'\thello'], {}), p
+    p = parse_command(r'\N')
+    assert p == ([None], {}), p
+    p = parse_command(r'none=\N')
+    assert p == ([], {'none': None}), p
+    p = parse_command(r'\N=none')
+    assert p == ([], {'\\N': 'none'}), p
+    p = parse_command(r'Not\N')
+    assert p == ([u'Not\\N'], {}), p
+    p = parse_command(r'\None')
+    assert p == ([u'\\None'], {}), p
     try:
-        parse_command('hello=')
+        p = parse_command('hello=')
     except ParseError, e:
-        print e
+        pass
+    else:
+        assert False, p + ' should raised a ParseError'
     try:
-        parse_command('"hello')
+        p = parse_command('"hello')
     except ParseError, e:
-        print e
+        pass
+    else:
+        assert False, p + ' should raised a ParseError'
 
