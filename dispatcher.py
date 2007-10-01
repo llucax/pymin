@@ -195,7 +195,7 @@ def parse_command(command):
     escape = False
     keyword = None
     state = SEP
-    for c in command:
+    for n, c in enumerate(command):
         # Escaped character
         if escape:
             for e in escaped_chars:
@@ -214,7 +214,7 @@ def parse_command(command):
         if state == SEP:
             if c in separators:
                 continue
-            if buff:
+            if buff and n != 2: # First item, not a escape sequence
                 if c == EQUAL: # Keyword found
                     keyword = buff
                     buff = u''
