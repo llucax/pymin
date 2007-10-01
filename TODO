@@ -16,7 +16,7 @@ Ideas / TODO:
 
 * Agregar logging.
 
-* Agregar validación.
+* Agregar validación con formencode.
 
 Estas cosas quedan sujetas a necesitada y a definición del protocolo.
 Para mí lo ideal es que el protocolo de red sea igual que la consola del

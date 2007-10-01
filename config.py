@@ -15,6 +15,10 @@ routes = dict \
         pickle_dir = 'var/lib/pymin/pickle/dhcp',
         config_dir = 'var/lib/pymin/config/dhcp',
     ),
+    firewall = FirewallHandler(
+        pickle_dir = 'var/lib/pymin/pickle/firewall',
+        config_dir = 'var/lib/pymin/config/firewall',
+    ),
 )
 
 bind_addr = \
