@@ -390,7 +390,10 @@ class ZoneHandler:
     @handler
     def add(self, name):
         if name in self.zones:
-            raise ZoneAlreadyExistsError(name)
+            if self.zones[name].dele = True:
+                self.zones[name].dele = False
+            else:
+                raise ZoneAlreadyExistsError(name)
         self.zones[name] = Zone(name)
         self.zones[name].mod = True
         self.zones[name].new = True
