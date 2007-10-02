@@ -9,7 +9,7 @@ Please see EventLoop class documentation for more info.
 import select
 from select import POLLIN, POLLPRI, POLLERR
 
-__ALL__ = ('EventLoop')
+__ALL__ = ('EventLoop', 'LoopInterruptedError')
 
 class LoopInterruptedError(RuntimeError):
     r"""

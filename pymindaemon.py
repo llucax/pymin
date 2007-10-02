@@ -70,7 +70,7 @@ class PyminDaemon(eventloop.EventLoop):
             response = u'ERROR '
         except Exception, e:
             import traceback
-            result = u'Internal server error'
+            result = u'Internal server error\n'
             traceback.print_exc() # TODO logging!
             response = u'ERROR '
         if result is None:
@@ -88,13 +88,11 @@ class PyminDaemon(eventloop.EventLoop):
 
 if __name__ == '__main__':
 
-    from dispatcher import handler
-
-    @handler
+    @handler(u"Print all the arguments, return nothing.")
     def test_handler(*args):
         print 'test:', args
 
-    @handler
+    @handler(u"Echo the message passed as argument.")
     def echo_handler(message):
         print 'echo:', message
         return message

@@ -14,13 +14,18 @@ except ImportError:
     # NOP for testing
     class Sequence: pass
 try:
-    from dispatcher import handler, HandlerError
+    from dispatcher import Handler, handler, HandlerError
 except ImportError:
     # NOP for testing
     class HandlerError(RuntimeError): pass
-    def handler(f): return f
+    class Handler: pass
+    def handler(help):
+        def wrapper(f):
+            return f
+        return wrapper
 
-__ALL__ = ('DhcpHandler',)
+__ALL__ = ('DhcpHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
+            'HostNotFoundError', 'ParameterError', 'ParameterNotFoundError')
 
 pickle_ext = '.pkl'
 pickle_vars = 'vars'
@@ -32,7 +37,7 @@ template_dir = path.join(path.dirname(__file__), 'templates')
 
 class Error(HandlerError):
     r"""
-    Error(command) -> Error instance :: Base DhcpHandler exception class.
+    Error(message) -> Error instance :: Base DhcpHandler exception class.
 
     All exceptions raised by the DhcpHandler inherits from this one, so you can
     easily catch any DhcpHandler exception.
@@ -123,7 +128,7 @@ class Host(Sequence):
         r"Return a tuple representing the host."
         return (self.name, self.ip, self.mac)
 
-class HostHandler:
+class HostHandler(Handler):
     r"""HostHandler(hosts) -> HostHandler instance :: Handle a list of hosts.
 
     This class is a helper for DhcpHandler to do all the work related to hosts
@@ -136,14 +141,14 @@ class HostHandler:
         r"Initialize HostHandler object, see class documentation for details."
         self.hosts = hosts
 
-    @handler
+    @handler(u'Add a new host.')
     def add(self, name, ip, mac):
         r"add(name, ip, mac) -> None :: Add a host to the hosts list."
         if name in self.hosts:
             raise HostAlreadyExistsError(name)
         self.hosts[name] = Host(name, ip, mac)
 
-    @handler
+    @handler(u'Update a host.')
     def update(self, name, ip=None, mac=None):
         r"update(name[, ip[, mac]]) -> None :: Update a host of the hosts list."
         if not name in self.hosts:
@@ -153,14 +158,14 @@ class HostHandler:
         if mac is not None:
             self.hosts[name].mac = mac
 
-    @handler
+    @handler(u'Delete a host.')
     def delete(self, name):
         r"delete(name) -> None :: Delete a host of the hosts list."
         if not name in self.hosts:
             raise HostNotFoundError(name)
         del self.hosts[name]
 
-    @handler
+    @handler(u'Get information about a host.')
     def get(self, name):
         r"""get(name) -> CSV string :: List all the information of a host.
 
@@ -170,7 +175,7 @@ class HostHandler:
             raise HostNotFoundError(name)
         return self.hosts[name]
 
-    @handler
+    @handler(u'List hosts.')
     def list(self):
         r"""list() -> CSV string :: List all the hostnames.
 
@@ -178,7 +183,7 @@ class HostHandler:
         """
         return self.hosts.keys()
 
-    @handler
+    @handler(u'Get information about all hosts.')
     def show(self):
         r"""show() -> CSV string :: List all the complete hosts information.
 
@@ -187,7 +192,7 @@ class HostHandler:
         """
         return self.hosts.values()
 
-class DhcpHandler:
+class DhcpHandler(Handler):
     r"""DhcpHandler([pickle_dir[, config_dir]]) -> DhcpHandler instance.
 
     Handles DHCP service commands for the dhcpd program.
@@ -225,21 +230,21 @@ class DhcpHandler:
             self._write_config()
         self.host = HostHandler(self.hosts)
 
-    @handler
+    @handler(u'Set a DHCP parameter.')
     def set(self, param, value):
         r"set(param, value) -> None :: Set a DHCP parameter."
         if not param in self.vars:
             raise ParameterNotFoundError(param)
         self.vars[param] = value
 
-    @handler
+    @handler(u'Get a DHCP parameter.')
     def get(self, param):
         r"get(param) -> None :: Get a DHCP parameter."
         if not param in self.vars:
             raise ParameterNotFoundError(param)
         return self.vars[param]
 
-    @handler
+    @handler(u'List all available DHCP parameters.')
     def list(self):
         r"""list() -> CSV string :: List all the parameter names.
 
@@ -247,7 +252,7 @@ class DhcpHandler:
         """
         return self.vars.keys()
 
-    @handler
+    @handler(u'Get all DHCP parameters, with their values.')
     def show(self):
         r"""show() -> CSV string :: List all the parameters (with their values).
 
@@ -257,35 +262,35 @@ class DhcpHandler:
         """
         return self.vars.items()
 
-    @handler
+    @handler(u'Start the service.')
     def start(self):
         r"start() -> None :: Start the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Stop the service.')
     def stop(self):
         r"stop() -> None :: Stop the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Restart the service.')
     def restart(self):
         r"restart() -> None :: Restart the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Reload the service config (without restarting, if possible).')
     def reload(self):
         r"reload() -> None :: Reload the configuration of the DHCP service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Commit the changes (reloading the service, if necessary).')
     def commit(self):
         r"commit() -> None :: Commit the changes and reload the DHCP service."
         #esto seria para poner en una interfaz
@@ -295,7 +300,7 @@ class DhcpHandler:
         self._write_config()
         self.reload()
 
-    @handler
+    @handler(u'Discard all the uncommited changes.')
     def rollback(self):
         r"rollback() -> None :: Discard the changes not yet commited."
         self._load()

@@ -10,7 +10,6 @@ def test_func(*args):
 
 routes = dict \
 (
-    test = test_func,
     dhcp = DhcpHandler(
         pickle_dir = 'var/lib/pymin/pickle/dhcp',
         config_dir = 'var/lib/pymin/config/dhcp',
@@ -18,7 +17,11 @@ routes = dict \
     dns = DnsHandler(
         pickle_dir = 'var/lib/pymin/pickle/dns',
         config_dir = 'var/lib/pymin/config/dns',
-    )
+    ),
+    firewall = FirewallHandler(
+        pickle_dir = 'var/lib/pymin/pickle/firewall',
+        config_dir = 'var/lib/pymin/config/firewall',
+    ),
 )
 
 bind_addr = \
