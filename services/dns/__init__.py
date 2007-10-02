@@ -18,10 +18,14 @@ except ImportError:
     class Sequence: pass
 
 try:
-    from dispatcher import handler, HandlerError
+    from dispatcher import handler, HandlerError, Handler
 except ImportError:
     class HandlerError(RuntimeError): pass
-    def handler(f): return f # NOP for testing
+    class Handler: pass
+    def handler(help):
+        def wrapper(f):
+            return f
+        return wrapper
 
 
 
@@ -232,11 +236,11 @@ class Host(Sequence):
     def as_tuple(self):
         return (self.name, self.ip)
 
-class HostHandler:
+class HostHandler(Handler):
     def __init__(self,zones):
         self.zones = zones
 
-    @handler
+    @handler(u'Adds a host to a zone')
     def add(self, name, hostname, ip):
         if not name in self.zones:
             raise ZoneNotFoundError(name)
@@ -245,7 +249,7 @@ class HostHandler:
         self.zones[name].hosts[hostname] = Host(hostname, ip)
         self.zones[name].mod = True
 
-    @handler
+    @handler(u'Updates a host ip in a zone')
     def update(self, name, hostname, ip):
         if not name in self.zones:
             raise ZoneNotFoundError(name)
@@ -254,7 +258,7 @@ class HostHandler:
         self.zones[name].hosts[hostname].ip = ip
         self.zones[name].mod = True
 
-    @handler
+    @handler(u'Deletes a host from a zone')
     def delete(self, name, hostname):
         if not name in self.zones:
             raise ZoneNotFoundError(name)
@@ -263,11 +267,11 @@ class HostHandler:
         del self.zones[name].hosts[hostname]
         self.zones[name].mod = True
 
-    @handler
+    @handler(u'Lists hosts')
     def list(self):
         return self.zones.keys()
 
-    @handler
+    @handler(u'Get insormation about all hosts')
     def show(self):
         return self.zones.values()
 
@@ -281,12 +285,12 @@ class MailExchange(Sequence):
     def as_tuple(self):
         return (self.mx, self.prio)
 
-class MailExchangeHandler:
+class MailExchangeHandler(Handler):
 
     def __init__(self, zones):
         self.zones = zones
 
-    @handler
+    @handler(u'Adds a mail exchange to a zone')
     def add(self, zonename, mx, prio):
         if not zonename in self.zones:
             raise ZoneNotFoundError(zonename)
@@ -295,7 +299,7 @@ class MailExchangeHandler:
         self.zones[zonename].mxs[mx] = MailExchange(mx, prio)
         self.zones[zonename].mod = True
 
-    @handler
+    @handler(u'Updates a mail exchange priority')
     def update(self, zonename, mx, prio):
         if not zonename in self.zones:
             raise ZoneNotFoundError(zonename)
@@ -304,7 +308,7 @@ class MailExchangeHandler:
         self.zones[zonename].mxs[mx].prio = prio
         self.zones[zonename].mod = True
 
-    @handler
+    @handler(u'Deletes a mail exchange from a zone')
     def delete(self, zonename, mx):
         if not zonename in self.zones:
             raise ZoneNotFoundError(zonename)
@@ -313,11 +317,11 @@ class MailExchangeHandler:
         del self.zones[zonename].mxs[mx]
         self.zones[zonename].mod = True
 
-    @handler
+    @handler(u'Lists mail exchangers')
     def list(self):
         return self.zones.keys()
 
-    @handler
+    @handler(u'Get information about all mail exchangers')
     def show(self):
         return self.zones.values()
 
@@ -330,12 +334,12 @@ class NameServer(Sequence):
     def as_tuple(self):
         return (self.name)
 
-class NameServerHandler:
+class NameServerHandler(Handler):
 
     def __init__(self, zones):
         self.zones = zones
 
-    @handler
+    @handler(u'Adds a name server to a zone')
     def add(self, zone, ns):
         if not zone in self.zones:
             raise ZoneNotFoundError(zone)
@@ -344,7 +348,7 @@ class NameServerHandler:
         self.zones[zone].nss[ns] = NameServer(ns)
         self.zones[zone].mod = True
 
-    @handler
+    @handler(u'Deletes a name server from a zone')
     def delete(self, zone, ns):
         if not zone in self.zones:
             raise ZoneNotFoundError(zone)
@@ -353,11 +357,11 @@ class NameServerHandler:
         del self.zones[zone].nss[ns]
         self.zones[zone].mod = True
 
-    @handler
+    @handler(u'Lists name servers')
     def list(self):
         return self.zones.keys()
 
-    @handler
+    @handler(u'Get information about all name servers')
     def show(self):
         return self.zones.values()
 
@@ -375,7 +379,7 @@ class Zone(Sequence):
     def as_tuple(self):
         return (self.name, self.hosts, self.mxs, self.nss)
 
-class ZoneHandler:
+class ZoneHandler(Handler):
 
     r"""ZoneHandler(zones) -> ZoneHandler instance :: Handle a list of zones.
 
@@ -387,10 +391,10 @@ class ZoneHandler:
     def __init__(self, zones):
         self.zones = zones
 
-    @handler
+    @handler(u'Adds a zone')
     def add(self, name):
         if name in self.zones:
-            if self.zones[name].dele = True:
+            if self.zones[name].dele == True:
                 self.zones[name].dele = False
             else:
                 raise ZoneAlreadyExistsError(name)
@@ -399,22 +403,22 @@ class ZoneHandler:
         self.zones[name].new = True
 
 
-    @handler
+    @handler(u'Deletes a zone')
     def delete(self, name):
         r"delete(name) -> None :: Delete a zone from the zone list."
         if not name in self.zones:
             raise ZoneNotFoundError(name)
         self.zones[name].dele = True
 
-    @handler
+    @handler(u'Lists zones')
     def list(self):
         return self.zones.keys()
 
-    @handler
+    @handler(u'Get information about all zones')
     def show(self):
         return self.zones.values()
 
-class DnsHandler:
+class DnsHandler(Handler):
     r"""DnsHandler([pickle_dir[, config_dir]]) -> DnsHandler instance.
 
     Handles DNS service commands for the dns program.
@@ -451,7 +455,7 @@ class DnsHandler:
         self.ns = NameServerHandler(self.zones)
         self.mod = False
 
-    @handler
+    @handler(u'Set a DNS parameter')
     def set(self, param, value):
         r"set(param, value) -> None :: Set a DNS parameter."
         if not param in self.vars:
@@ -459,50 +463,50 @@ class DnsHandler:
         self.vars[param] = value
         self.mod = True
 
-    @handler
+    @handler(u'Get a DNS parameter')
     def get(self, param):
         r"get(param) -> None :: Get a DNS parameter."
         if not param in self.vars:
             raise ParameterNotFoundError(param)
         return self.vars[param]
 
-    @handler
+    @handler(u'List DNS parameters')
     def list(self):
         return self.vars.keys()
 
-    @handler
+    @handler(u'Get all DNS parameters, with their values.')
     def show(self):
         return self.vars.values()
 
-    @handler
+    @handler(u'Start the service.')
     def start(self):
         r"start() -> None :: Start the DNS service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Stop the service.')
     def stop(self):
         r"stop() -> None :: Stop the DNS service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Restart the service.')
     def restart(self):
         r"restart() -> None :: Restart the DNS service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Reload the service config (without restarting, if possible)')
     def reload(self):
         r"reload() -> None :: Reload the configuration of the DNS service."
         #esto seria para poner en una interfaz
         #y seria el hook para arrancar el servicio
         pass
 
-    @handler
+    @handler(u'Commit the changes (reloading the service, if necessary).')
     def commit(self):
         r"commit() -> None :: Commit the changes and reload the DNS service."
         #esto seria para poner en una interfaz
@@ -512,7 +516,7 @@ class DnsHandler:
         self._write_config()
         self.reload()
 
-    @handler
+    @handler(u'Discard all the uncommited changes.')
     def rollback(self):
         r"rollback() -> None :: Discard the changes not yet commited."
         self._load()

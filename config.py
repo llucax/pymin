@@ -22,6 +22,10 @@ routes = dict \
         pickle_dir = 'var/lib/pymin/pickle/firewall',
         config_dir = 'var/lib/pymin/config/firewall',
     ),
+    ip = IpHandler(
+        pickle_dir = 'var/lib/pymin/pickle/ip',
+        config_dir = 'var/lib/pymin/config/ip',
+    ),
 )
 
 bind_addr = \

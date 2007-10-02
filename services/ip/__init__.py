@@ -15,13 +15,18 @@ except ImportError:
     # NOP for testing
     class Sequence: pass
 try:
-    from dispatcher import handler, HandlerError
+    from dispatcher import handler, HandlerError, Handler
 except ImportError:
     # NOP for testing
     class HandlerError(RuntimeError): pass
-    def handler(f): return f
+    class Handler: pass
+    def handler(help):
+        def wrapper(f):
+            return f
+        return wrapper
 
-__ALL__ = ('IpHandler',)
+__ALL__ = ('IpHandler','Error','DeviceError','DeviceNotFoundError','RouteError','RouteNotFoundError',
+            'RouteAlreadyExistsError','AddressError','AddressNotFoundError','AddressAlreadyExistsError')
 
 pickle_ext = '.pkl'
 pickle_devices = 'devs'
@@ -112,12 +117,12 @@ class Route(Sequence):
             return 0
         return cmp(id(self), id(other))
 
-class RouteHandler:
+class RouteHandler(Handler):
 
     def __init__(self, devices):
         self.devices = devices
 
-    @handler
+    @handler(u'Adds a route to a device')
     def add(self, device, net_addr, prefix, gateway):
         if not device in self.devices:
             raise DeviceNotFoundError(device)
@@ -128,7 +133,7 @@ class RouteHandler:
         except ValueError:
             self.devices[device].routes.append(r)
 
-    @handler
+    @handler(u'Deletes a route from a device')
     def delete(self, device, net_addr, prefix, gateway):
         if not device in self.devices:
             raise DeviceNotFoundError(device)
@@ -138,14 +143,14 @@ class RouteHandler:
         except ValueError:
             raise RouteNotFoundError(net_addr + '/' + prefix + '->' + gateway)
 
-    @handler
+    @handler(u'Flushes routes from a device')
     def flush(self, device):
         if not device in self.devices:
             raise DeviceNotFoundError(device)
         self.devices[device].routes = list()
 
 
-    @handler
+    @handler(u'List routes')
     def list(self, device):
         try:
             k = self.devices[device].routes.keys()
@@ -153,7 +158,7 @@ class RouteHandler:
             k = list()
         return k
 
-    @handler
+    @handler(u'Get information about all routes')
     def show(self):
         try:
             k = self.devices[device].routes.values()
@@ -171,12 +176,12 @@ class Address(Sequence):
     def as_tuple(self):
         return (self.ip, self.prefix, self.broadcast)
 
-class AddressHandler:
+class AddressHandler(Handler):
 
     def __init__(self, devices):
         self.devices = devices
 
-    @handler
+    @handler(u'Adds an address to a device')
     def add(self, device, ip, prefix, broadcast='+'):
         if not device in self.devices:
             raise DeviceNotFoundError(device)
@@ -184,7 +189,7 @@ class AddressHandler:
             raise AddressAlreadyExistsError(ip)
         self.devices[device].addrs[ip] = Address(ip, prefix, broadcast)
 
-    @handler
+    @handler(u'Deletes an address from a device')
     def delete(self, device, ip):
         if not device in self.devices:
             raise DeviceNotFoundError(device)
@@ -192,13 +197,13 @@ class AddressHandler:
             raise AddressNotFoundError(ip)
         del self.devices[device].addrs[ip]
 
-    @handler
+    @handler(u'Flushes addresses from a device')
     def flush(self, device):
         if not device in self.devices:
             raise DeviceNotFoundError(device)
         self.devices[device].addrs = dict()
 
-    @handler
+    @handler(u'List all addresses from a device')
     def list(self, device):
         try:
             k = self.devices[device].addrs.keys()
@@ -206,7 +211,7 @@ class AddressHandler:
             k = list()
         return k
 
-    @handler
+    @handler(u'Get information about addresses from a device')
     def show(self, device):
         try:
             k = self.devices[device].addrs.values()
@@ -225,36 +230,36 @@ class Device(Sequence):
     def as_tuple(self):
         return (self.name, self.mac)
 
-class DeviceHandler:
+class DeviceHandler(Handler):
 
     def __init__(self, devices):
         self.devices = devices
         dev_fn = path.join(template_dir, device_com)
         self.device_template = Template(filename=dev_fn)
 
-    @handler
+    @handler(u'Bring the device up')
     def up(self, name):
         if name in self.devices:
             print self.device_template.render(dev=name, action='up')
         else:
             raise DeviceNotFoundError(name)
 
-    @handler
+    @handler(u'Bring the device down')
     def down(self, name):
         if name in self.devices:
             print self.device_template.render(dev=name, action='down')
         else:
             raise DeviceNotFoundError(name)
 
-    @handler
+    @handler(u'List all devices')
     def list(self):
         return self.devices.keys()
 
-    @handler
+    @handler(u'Get information about a device')
     def show(self):
         return self.devices.items()
 
-class IpHandler:
+class IpHandler(Handler):
 
     def __init__(self, pickle_dir='.', config_dir='.'):
         r"Initialize DhcpHandler object, see class documentation for details."
@@ -282,7 +287,7 @@ class IpHandler:
             p = Popen('ip link list', shell=True, stdout=PIPE, close_fds=True)
             devs = _get_devices(p.stdout.read())
             self.devices = dict()
-            for eth, mac in devs.values():
+            for eth, mac in devs:
                 self.devices[eth] = Device(eth, mac)
             self._dump()
         self.addr = AddressHandler(self.devices)
@@ -290,7 +295,7 @@ class IpHandler:
         self.dev = DeviceHandler(self.devices)
         self.commit()
 
-    @handler
+    @handler(u'Commit the changes (reloading the service, if necessary).')
     def commit(self):
         r"commit() -> None :: Commit the changes and reload the DHCP service."
         #esto seria para poner en una interfaz
@@ -299,7 +304,7 @@ class IpHandler:
         self._dump()
         self._write_config()
 
-    @handler
+    @handler(u'Discard all the uncommited changes.')
     def rollback(self):
         r"rollback() -> None :: Discard the changes not yet commited."
         self._load()
@@ -352,16 +357,16 @@ class IpHandler:
                     gateway=route.gateway
                     )
 
-    def _get_devices(string):
-       l = list()
-       i = string.find('eth')
-       while i != -1:
-           eth = string[i:i+4]
-           m = string.find('link/ether', i+4)
-           mac = string[ m+11 : m+11+17]
-           l.append((eth,mac))
-           i = string.find('eth', m+11+17)
-       return l
+def _get_devices(string):
+   l = list()
+   i = string.find('eth')
+   while i != -1:
+       eth = string[i:i+4]
+       m = string.find('link/ether', i+4)
+       mac = string[ m+11 : m+11+17]
+       l.append((eth,mac))
+       i = string.find('eth', m+11+17)
+   return l
 
 if __name__ == '__main__':
 
