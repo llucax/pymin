@@ -1,39 +1,14 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from mako.template import Template
-from mako.runtime import Context
 from os import path
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
-try:
-    from seqtools import Sequence
-except ImportError:
-    # NOP for testing
-    class Sequence: pass
-try:
-    from dispatcher import Handler, handler, HandlerError
-except ImportError:
-    # NOP for testing
-    class HandlerError(RuntimeError): pass
-    class Handler: pass
-    def handler(help):
-        def wrapper(f):
-            return f
-        return wrapper
+from seqtools import Sequence
+from dispatcher import Handler, handler, HandlerError
+from services.util import Restorable, ConfigWriter
+from services.util import InitdHandler, TransactionalHandler
 
 __ALL__ = ('DhcpHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
             'HostNotFoundError', 'ParameterError', 'ParameterNotFoundError')
-
-pickle_ext = '.pkl'
-pickle_vars = 'vars'
-pickle_hosts = 'hosts'
-
-config_filename = 'dhcpd.conf'
-
-template_dir = path.join(path.dirname(__file__), 'templates')
 
 class Error(HandlerError):
     r"""
@@ -167,32 +142,22 @@ class HostHandler(Handler):
 
     @handler(u'Get information about a host.')
     def get(self, name):
-        r"""get(name) -> CSV string :: List all the information of a host.
-
-        The host is returned as a CSV list of: hostname,ip,mac
-        """
+        r"get(name) -> Host :: List all the information of a host."
         if not name in self.hosts:
             raise HostNotFoundError(name)
         return self.hosts[name]
 
     @handler(u'List hosts.')
     def list(self):
-        r"""list() -> CSV string :: List all the hostnames.
-
-        The list is returned as a single CSV line with all the hostnames.
-        """
+        r"list() -> tuple :: List all the hostnames."
         return self.hosts.keys()
 
     @handler(u'Get information about all hosts.')
     def show(self):
-        r"""show() -> CSV string :: List all the complete hosts information.
-
-        The hosts are returned as a CSV list with each host in a line, like:
-        hostname,ip,mac
-        """
+        r"show() -> list of Hosts :: List all the complete hosts information."
         return self.hosts.values()
 
-class DhcpHandler(Handler):
+class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
     r"""DhcpHandler([pickle_dir[, config_dir]]) -> DhcpHandler instance.
 
     Handles DHCP service commands for the dhcpd program.
@@ -204,19 +169,13 @@ class DhcpHandler(Handler):
     Both defaults to the current working directory.
     """
 
-    def __init__(self, pickle_dir='.', config_dir='.'):
-        r"Initialize DhcpHandler object, see class documentation for details."
-        self.pickle_dir = pickle_dir
-        self.config_dir = config_dir
-        filename = path.join(template_dir, config_filename)
-        self.template = Template(filename=filename)
-        try:
-            self._load()
-        except IOError:
-            # This is the first time the handler is used, create a basic
-            # setup using some nice defaults
-            self.hosts = dict()
-            self.vars = dict(
+    _initd_name = 'dhcpd'
+
+    _persistent_vars = ('vars', 'hosts')
+
+    _restorable_defaults = dict(
+            hosts = dict(),
+            vars  = dict(
                 domain_name = 'example.com',
                 dns_1       = 'ns1.example.com',
                 dns_2       = 'ns2.example.com',
@@ -225,10 +184,22 @@ class DhcpHandler(Handler):
                 net_start   = '192.168.0.100',
                 net_end     = '192.168.0.200',
                 net_gateway = '192.168.0.1',
-            )
-            self._dump()
-            self._write_config()
+            ),
+    )
+
+    _config_writer_files = 'dhcpd.conf'
+    _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
+
+    def __init__(self, pickle_dir='.', config_dir='.'):
+        r"Initialize DhcpHandler object, see class documentation for details."
+        self._persistent_dir = pickle_dir
+        self._config_writer_cfg_dir = config_dir
+        self._config_build_templates()
+        self._restore()
         self.host = HostHandler(self.hosts)
+
+    def _get_config_vars(self, config_file):
+        return dict(hosts=self.hosts.values(), **self.vars)
 
     @handler(u'Set a DHCP parameter.')
     def set(self, param, value):
@@ -246,138 +217,47 @@ class DhcpHandler(Handler):
 
     @handler(u'List all available DHCP parameters.')
     def list(self):
-        r"""list() -> CSV string :: List all the parameter names.
-
-        The list is returned as a single CSV line with all the names.
-        """
+        r"list() -> tuple :: List all the parameter names."
         return self.vars.keys()
 
     @handler(u'Get all DHCP parameters, with their values.')
     def show(self):
-        r"""show() -> CSV string :: List all the parameters (with their values).
-
-        The parameters are returned as a CSV list with each parameter in a
-        line, like:
-        name,value
-        """
+        r"show() -> (key, value) tuples :: List all the parameters."
         return self.vars.items()
-
-    @handler(u'Start the service.')
-    def start(self):
-        r"start() -> None :: Start the DHCP service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Stop the service.')
-    def stop(self):
-        r"stop() -> None :: Stop the DHCP service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Restart the service.')
-    def restart(self):
-        r"restart() -> None :: Restart the DHCP service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Reload the service config (without restarting, if possible).')
-    def reload(self):
-        r"reload() -> None :: Reload the configuration of the DHCP service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Commit the changes (reloading the service, if necessary).')
-    def commit(self):
-        r"commit() -> None :: Commit the changes and reload the DHCP service."
-        #esto seria para poner en una interfaz
-        #y seria que hace el pickle deberia llamarse
-        #al hacerse un commit
-        self._dump()
-        self._write_config()
-        self.reload()
-
-    @handler(u'Discard all the uncommited changes.')
-    def rollback(self):
-        r"rollback() -> None :: Discard the changes not yet commited."
-        self._load()
-
-    def _dump(self):
-        r"_dump() -> None :: Dump all persistent data to pickle files."
-        # XXX podría ir en una clase base
-        self._dump_var(self.vars, pickle_vars)
-        self._dump_var(self.hosts, pickle_hosts)
-
-    def _load(self):
-        r"_load() -> None :: Load all persistent data from pickle files."
-        # XXX podría ir en una clase base
-        self.vars = self._load_var(pickle_vars)
-        self.hosts = self._load_var(pickle_hosts)
-
-    def _pickle_filename(self, name):
-        r"_pickle_filename() -> string :: Construct a pickle filename."
-        # XXX podría ir en una clase base
-        return path.join(self.pickle_dir, name) + pickle_ext
-
-    def _dump_var(self, var, name):
-        r"_dump_var() -> None :: Dump a especific variable to a pickle file."
-        # XXX podría ir en una clase base
-        pkl_file = file(self._pickle_filename(name), 'wb')
-        pickle.dump(var, pkl_file, 2)
-        pkl_file.close()
-
-    def _load_var(self, name):
-        r"_load_var() -> object :: Load a especific pickle file."
-        # XXX podría ir en una clase base
-        return pickle.load(file(self._pickle_filename(name)))
-
-    def _write_config(self):
-        r"_write_config() -> None :: Generate all the configuration files."
-        # XXX podría ir en una clase base, ver como generalizar variables a
-        # reemplazar en la template
-        out_file = file(path.join(self.config_dir, config_filename), 'w')
-        ctx = Context(out_file, hosts=self.hosts.values(), **self.vars)
-        self.template.render_context(ctx)
-        out_file.close()
 
 if __name__ == '__main__':
 
     import os
 
-    dhcp_handler = DhcpHandler()
+    h = DhcpHandler()
 
     def dump():
         print '-' * 80
-        print 'Variables:', dhcp_handler.list()
-        print dhcp_handler.show()
+        print 'Variables:', h.list()
+        print h.show()
         print
-        print 'Hosts:', dhcp_handler.host.list()
-        print dhcp_handler.host.show()
+        print 'Hosts:', h.host.list()
+        print h.host.show()
         print '-' * 80
 
     dump()
 
-    dhcp_handler.host.add('my_name','192.168.0.102','00:12:ff:56')
+    h.host.add('my_name','192.168.0.102','00:12:ff:56')
 
-    dhcp_handler.host.update('my_name','192.168.0.192','00:12:ff:56')
+    h.host.update('my_name','192.168.0.192','00:12:ff:56')
 
-    dhcp_handler.host.add('nico','192.168.0.188','00:00:00:00')
+    h.host.add('nico','192.168.0.188','00:00:00:00')
 
-    dhcp_handler.set('domain_name','baryon.com.ar')
+    h.set('domain_name','baryon.com.ar')
 
     try:
-        dhcp_handler.set('sarasa','baryon.com.ar')
+        h.set('sarasa','baryon.com.ar')
     except KeyError, e:
         print 'Error:', e
 
-    dhcp_handler.commit()
+    h.commit()
 
     dump()
 
-    for f in (pickle_vars + pickle_ext, pickle_hosts + pickle_ext,
-                                                            config_filename):
-        os.unlink(f)
+    os.system('rm -f *.pkl ' + ' '.join(h._config_writer_files))
 

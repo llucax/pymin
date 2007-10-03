@@ -3,39 +3,15 @@
 # TODO See if it's better (more secure) to execute commands via python instead
 # of using script templates.
 
-from mako.template import Template
-from mako.runtime import Context
 from os import path
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
-try:
-    from seqtools import Sequence
-except ImportError:
-    # NOP for testing
-    class Sequence: pass
-try:
-    from dispatcher import Handler, handler, HandlerError
-except ImportError:
-    # NOP for testing
-    class HandlerError(RuntimeError): pass
-    class Handler: pass
-    def handler(help):
-        def wrapper(f):
-            return f
-        return wrapper
+from seqtools import Sequence
+from dispatcher import Handler, handler, HandlerError
+from services.util import ServiceHandler, TransactionalHandler
+from services.util import Restorable, ConfigWriter
 
 __ALL__ = ('FirewallHandler', 'Error', 'RuleError', 'RuleAlreadyExistsError',
            'RuleNotFoundError')
-
-pickle_ext = '.pkl'
-pickle_rules = 'rules'
-
-config_filename = 'iptables.sh'
-
-template_dir = path.join(path.dirname(__file__), 'templates')
 
 class Error(HandlerError):
     r"""
@@ -197,7 +173,8 @@ class RuleHandler(Handler):
         r"show() -> list of Rules :: List all the complete rules information."
         return self.rules
 
-class FirewallHandler(Handler):
+class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
+                                                        TransactionalHandler):
     r"""FirewallHandler([pickle_dir[, config_dir]]) -> FirewallHandler instance.
 
     Handles firewall commands using iptables.
@@ -209,104 +186,28 @@ class FirewallHandler(Handler):
     Both defaults to the current working directory.
     """
 
+    _persistent_vars = 'rules'
+
+    _restorable_defaults = dict(rules=list())
+
+    _config_writer_files = 'iptables.sh'
+    _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
+
     def __init__(self, pickle_dir='.', config_dir='.'):
-        r"Initialize FirewallHandler object, see class documentation for details."
-        self.pickle_dir = pickle_dir
-        self.config_dir = config_dir
-        filename = path.join(template_dir, config_filename)
-        self.template = Template(filename=filename)
-        try:
-            self._load()
-        except IOError:
-            # This is the first time the handler is used, create a basic
-            # setup using some nice defaults
-            self.rules = list() # TODO defaults?
-            self._dump()
-            self._write_config()
+        r"Initialize the object, see class documentation for details."
+        self._persistent_dir = pickle_dir
+        self._config_writer_cfg_dir = config_dir
+        self._service_start = path.join(self._config_writer_cfg_dir,
+                                                    self._config_writer_files)
+        self._service_stop = ('iptables', '-t', 'filter', '-F')
+        self._service_restart = self._service_start
+        self._service_reload = self._service_start
+        self._config_build_templates()
+        self._restore()
         self.rule = RuleHandler(self.rules)
 
-    # Does this (start, stop, restart, reload) makes sense??? 
-    # Implement a "try" command that apply the changes for some time and
-    # then goes back to the previous configuration if the changes are not
-    # commited. TODO
-    @handler(u'Start the service.')
-    def start(self):
-        r"start() -> None :: Start the firewall."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Stop the service.')
-    def stop(self):
-        r"stop() -> None :: Stop the firewall."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Restart the service.')
-    def restart(self):
-        r"restart() -> None :: Restart the firewall."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Reload the service config (without restarting, if possible).')
-    def reload(self):
-        r"reload() -> None :: Reload the configuration of the firewall."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Commit the changes (reloading the service, if necessary).')
-    def commit(self):
-        r"commit() -> None :: Commit the changes and reload the firewall."
-        #esto seria para poner en una interfaz
-        #y seria que hace el pickle deberia llamarse
-        #al hacerse un commit
-        self._dump()
-        self._write_config()
-        self.reload() # TODO exec the script
-
-    @handler(u'Discard all the uncommited changes.')
-    def rollback(self):
-        r"rollback() -> None :: Discard the changes not yet commited."
-        self._load()
-
-    def _dump(self):
-        r"_dump() -> None :: Dump all persistent data to pickle files."
-        # XXX podría ir en una clase base
-        self._dump_var(self.rules, pickle_rules)
-
-    def _load(self):
-        r"_load() -> None :: Load all persistent data from pickle files."
-        # XXX podría ir en una clase base
-        self.rules = self._load_var(pickle_rules)
-
-    def _pickle_filename(self, name):
-        r"_pickle_filename() -> string :: Construct a pickle filename."
-        # XXX podría ir en una clase base
-        return path.join(self.pickle_dir, name) + pickle_ext
-
-    def _dump_var(self, var, name):
-        r"_dump_var() -> None :: Dump a especific variable to a pickle file."
-        # XXX podría ir en una clase base
-        pkl_file = file(self._pickle_filename(name), 'wb')
-        pickle.dump(var, pkl_file, 2)
-        pkl_file.close()
-
-    def _load_var(self, name):
-        r"_load_var() -> object :: Load a especific pickle file."
-        # XXX podría ir en una clase base
-        return pickle.load(file(self._pickle_filename(name)))
-
-    def _write_config(self):
-        r"_write_config() -> None :: Generate all the configuration files."
-        # XXX podría ir en una clase base, ver como generalizar variables a
-        # reemplazar en la template
-        out_file = file(path.join(self.config_dir, config_filename), 'w')
-        ctx = Context(out_file, rules=self.rules)
-        self.template.render_context(ctx)
-        out_file.close()
+    def _get_config_vars(self, config_file):
+        return dict(rules=self.rules)
 
 if __name__ == '__main__':
 
@@ -330,8 +231,9 @@ if __name__ == '__main__':
 
     fw_handler.commit()
 
+    fw_handler.stop()
+
     dump()
 
-    for f in (pickle_rules + pickle_ext, config_filename):
-        os.unlink(f)
+    os.system('rm -f *.pkl iptables.sh')
 

@@ -26,6 +26,10 @@ routes = dict \
         pickle_dir = 'var/lib/pymin/pickle/ip',
         config_dir = 'var/lib/pymin/config/ip',
     ),
+    proxy = ProxyHandler(
+        pickle_dir = 'var/lib/pymin/pickle/proxy',
+        config_dir = 'var/lib/pymin/config/proxy',
+    ),
 )
 
 bind_addr = \

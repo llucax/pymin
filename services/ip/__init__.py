@@ -1,47 +1,15 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from mako.template import Template
-from mako.runtime import Context
 from subprocess import Popen, PIPE
 from os import path
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
-try:
-    from seqtools import Sequence
-except ImportError:
-    # NOP for testing
-    class Sequence: pass
-try:
-    from dispatcher import handler, HandlerError, Handler
-except ImportError:
-    # NOP for testing
-    class HandlerError(RuntimeError): pass
-    class Handler: pass
-    def handler(help):
-        def wrapper(f):
-            return f
-        return wrapper
+from seqtools import Sequence
+from dispatcher import handler, HandlerError, Handler
+from services.util import Restorable, ConfigWriter
+from services.util import InitdHandler, TransactionalHandler
 
 __ALL__ = ('IpHandler','Error','DeviceError','DeviceNotFoundError','RouteError','RouteNotFoundError',
             'RouteAlreadyExistsError','AddressError','AddressNotFoundError','AddressAlreadyExistsError')
-
-pickle_ext = '.pkl'
-pickle_devices = 'devs'
-
-template_dir = path.join(path.dirname(__file__), 'templates')
-command_filename = 'command'
-
-
-device_com = 'device.command'
-ip_add_com = 'ip_add.command'
-ip_del_com = 'ip_del.command'
-ip_flush_com = 'ip_flush.command'
-route_add_com = 'route_add.command'
-route_del_com = 'route_del.command'
-route_flush_com = 'route_flush.command'
 
 class Error(HandlerError):
     r"""
@@ -233,8 +201,11 @@ class Device(Sequence):
 class DeviceHandler(Handler):
 
     def __init__(self, devices):
+        # FIXME remove templates to execute commands
+        from mako.template import Template
         self.devices = devices
-        dev_fn = path.join(template_dir, device_com)
+        template_dir = path.join(path.dirname(__file__), 'templates')
+        dev_fn = path.join(template_dir, 'device')
         self.device_template = Template(filename=dev_fn)
 
     @handler(u'Bring the device up')
@@ -259,114 +230,62 @@ class DeviceHandler(Handler):
     def show(self):
         return self.devices.items()
 
-class IpHandler(Handler):
+def get_devices():
+    p = Popen(('ip', 'link', 'list'), stdout=PIPE, close_fds=True)
+    string = p.stdout.read()
+    p.wait()
+    d = dict()
+    i = string.find('eth')
+    while i != -1:
+        eth = string[i:i+4]
+        m = string.find('link/ether', i+4)
+        mac = string[ m+11 : m+11+17]
+        d[eth] = Device(eth, mac)
+        i = string.find('eth', m+11+17)
+    return d
+
+class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
+
+    _persistent_vars = 'devices'
+
+    _restorable_defaults = dict(devices=get_devices())
+
+    _config_writer_files = ('device', 'ip_add', 'ip_del', 'ip_flush',
+                            'route_add', 'route_del', 'route_flush')
+    _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
 
     def __init__(self, pickle_dir='.', config_dir='.'):
         r"Initialize DhcpHandler object, see class documentation for details."
-
-        self.pickle_dir = pickle_dir
-        self.config_dir = config_dir
-
-        ip_add_fn = path.join(template_dir, ip_add_com)
-        ip_del_fn = path.join(template_dir, ip_del_com)
-        ip_flush_fn = path.join(template_dir, ip_flush_com)
-        self.ip_add_template = Template(filename=ip_add_fn)
-        self.ip_del_template = Template(filename=ip_del_fn)
-        self.ip_flush_template = Template(filename=ip_flush_fn)
-
-        route_add_fn = path.join(template_dir, route_add_com)
-        route_del_fn = path.join(template_dir, route_del_com)
-        route_flush_fn = path.join(template_dir, route_flush_com)
-        self.route_add_template = Template(filename=route_add_fn)
-        self.route_del_template = Template(filename=route_del_fn)
-        self.route_flush_template = Template(filename=route_flush_fn)
-
-        try:
-            self._load()
-        except IOError:
-            p = Popen('ip link list', shell=True, stdout=PIPE, close_fds=True)
-            devs = _get_devices(p.stdout.read())
-            self.devices = dict()
-            for eth, mac in devs:
-                self.devices[eth] = Device(eth, mac)
-            self._dump()
+        self._persistent_dir = pickle_dir
+        self._config_writer_cfg_dir = config_dir
+        self._config_build_templates()
+        self._restore()
         self.addr = AddressHandler(self.devices)
         self.route = RouteHandler(self.devices)
         self.dev = DeviceHandler(self.devices)
-        self.commit()
-
-    @handler(u'Commit the changes (reloading the service, if necessary).')
-    def commit(self):
-        r"commit() -> None :: Commit the changes and reload the DHCP service."
-        #esto seria para poner en una interfaz
-        #y seria que hace el pickle deberia llamarse
-        #al hacerse un commit
-        self._dump()
-        self._write_config()
-
-    @handler(u'Discard all the uncommited changes.')
-    def rollback(self):
-        r"rollback() -> None :: Discard the changes not yet commited."
-        self._load()
-
-    def _dump(self):
-        r"_dump() -> None :: Dump all persistent data to pickle files."
-        # XXX podría ir en una clase base
-        self._dump_var(self.devices, pickle_devices)
-
-
-    def _load(self):
-        r"_load() -> None :: Load all persistent data from pickle files."
-        # XXX podría ir en una clase base
-        self.devices = self._load_var(pickle_devices)
-
-    def _pickle_filename(self, name):
-        r"_pickle_filename() -> string :: Construct a pickle filename."
-        # XXX podría ir en una clase base
-        return path.join(self.pickle_dir, name) + pickle_ext
-
-    def _dump_var(self, var, name):
-        r"_dump_var() -> None :: Dump a especific variable to a pickle file."
-        # XXX podría ir en una clase base
-        pkl_file = file(self._pickle_filename(name), 'wb')
-        pickle.dump(var, pkl_file, 2)
-        pkl_file.close()
-
-    def _load_var(self, name):
-        r"_load_var()7 -> object :: Load a especific pickle file."
-        # XXX podría ir en una clase base
-        return pickle.load(file(self._pickle_filename(name)))
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            print self.route_flush_template.render(dev=device.name)
-            print self.ip_flush_template.render(dev=device.name)
+            print self._render_config('route_flush', dict(dev=device.name))
+            print self._render_config('ip_flush', dict(dev=device.name))
             for address in device.addrs.values():
-                print self.ip_add_template.render(
-                    dev=device.name,
-                    addr=address.ip,
-                    prefix=address.prefix,
-                    broadcast=address.broadcast
+                print self._render_config('ip_add', dict(
+                        dev = device.name,
+                        addr = address.ip,
+                        prefix = address.prefix,
+                        broadcast = address.broadcast,
                     )
+                )
             for route in device.routes:
-                print self.route_add_template.render(
-                    dev=device.name,
-                    net_addr=route.net_addr,
-                    prefix=route.prefix,
-                    gateway=route.gateway
+                print self._render_config('route_add', dict(
+                        dev = device.name,
+                        net_addr = route.net_addr,
+                        prefix = route.prefix,
+                        gateway = route.gateway,
                     )
+                )
 
-def _get_devices(string):
-   l = list()
-   i = string.find('eth')
-   while i != -1:
-       eth = string[i:i+4]
-       m = string.find('link/ether', i+4)
-       mac = string[ m+11 : m+11+17]
-       l.append((eth,mac))
-       i = string.find('eth', m+11+17)
-   return l
 
 if __name__ == '__main__':
 

@@ -1,44 +1,22 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 # TODO COMMENT
-from mako.template import Template
-from mako.runtime import Context
 from os import path
 from os import unlink
+from new import instancemethod
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+from seqtools import Sequence
+from dispatcher import handler, HandlerError, Handler
+from services.util import Restorable, ConfigWriter, call
+from services.util import InitdHandler, TransactionalHandler
 
-try:
-    from seqtools import Sequence
-except ImportError:
-    # NOP for testing
-    class Sequence: pass
-
-try:
-    from dispatcher import handler, HandlerError, Handler
-except ImportError:
-    class HandlerError(RuntimeError): pass
-    class Handler: pass
-    def handler(help):
-        def wrapper(f):
-            return f
-        return wrapper
-
-
-
-__ALL__ = ('DnsHandler',)
-
-pickle_ext = '.pkl'
-
-pickle_vars = 'vars'
-pickle_zones = 'zones'
-
-config_filename = 'named.conf'
-zone_filename = 'zoneX.zone'
-zone_filename_ext = '.zone'
+__ALL__ = ('DnsHandler', 'Error',
+            'ZoneError', 'ZoneNotFoundError', 'ZoneAlreadyExistsError',
+            'HostError', 'HostAlreadyExistsError', 'HostNotFoundError',
+            'MailExchangeError', 'MailExchangeAlreadyExistsError',
+            'MailExchangeNotFoundError', 'NameServerError',
+            'NameServerAlreadyExistsError', 'NameServerNotFoundError',
+            'ParameterError', 'ParameterNotFoundError')
 
 template_dir = path.join(path.dirname(__file__), 'templates')
 
@@ -418,7 +396,7 @@ class ZoneHandler(Handler):
     def show(self):
         return self.zones.values()
 
-class DnsHandler(Handler):
+class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
     r"""DnsHandler([pickle_dir[, config_dir]]) -> DnsHandler instance.
 
     Handles DNS service commands for the dns program.
@@ -430,30 +408,34 @@ class DnsHandler(Handler):
     Both defaults to the current working directory.
     """
 
-    def __init__(self, pickle_dir='.', config_dir='.'):
-        r"Initialize DnsHandler object, see class documentation for details."
-        self.pickle_dir = pickle_dir
-        self.config_dir = config_dir
-        c_filename = path.join(template_dir, config_filename)
-        z_filename = path.join(template_dir, zone_filename)
-        self.config_template = Template(filename=c_filename)
-        self.zone_template = Template(filename=z_filename)
-        try :
-            self._load()
-        except IOError:
-            self.zones = dict()
-            self.vars = dict(
+    _initd_name = 'bind'
+
+    _persistent_vars = ('vars', 'zones')
+
+    _restorable_defaults = dict(
+            zones = dict(),
+            vars  = dict(
                 isp_dns1 = '',
                 isp_dns2 = '',
                 bind_addr1 = '',
                 bind_addr2 = ''
-            )
+            ),
+    )
 
+    _config_writer_files = ('named.conf', 'zoneX.zone')
+    _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
+
+    def __init__(self, pickle_dir='.', config_dir='.'):
+        r"Initialize DnsHandler object, see class documentation for details."
+        self._persistent_dir = pickle_dir
+        self._config_writer_cfg_dir = config_dir
+        self.mod = False
+        self._config_build_templates()
+        self._restore()
         self.host = HostHandler(self.zones)
         self.zone = ZoneHandler(self.zones)
         self.mx = MailExchangeHandler(self.zones)
         self.ns = NameServerHandler(self.zones)
-        self.mod = False
 
     @handler(u'Set a DNS parameter')
     def set(self, param, value):
@@ -478,103 +460,32 @@ class DnsHandler(Handler):
     def show(self):
         return self.vars.values()
 
-    @handler(u'Start the service.')
-    def start(self):
-        r"start() -> None :: Start the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
+    def _zone_filename(self, zone):
+        return zone.name + '.zone'
 
-    @handler(u'Stop the service.')
-    def stop(self):
-        r"stop() -> None :: Stop the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Restart the service.')
-    def restart(self):
-        r"restart() -> None :: Restart the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Reload the service config (without restarting, if possible)')
-    def reload(self):
-        r"reload() -> None :: Reload the configuration of the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Commit the changes (reloading the service, if necessary).')
-    def commit(self):
-        r"commit() -> None :: Commit the changes and reload the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria que hace el pickle deberia llamarse
-        #al hacerse un commit
-        self._dump()
-        self._write_config()
-        self.reload()
-
-    @handler(u'Discard all the uncommited changes.')
-    def rollback(self):
-        r"rollback() -> None :: Discard the changes not yet commited."
-        self._load()
-
-    def _dump(self):
-        r"_dump() -> None :: Dump all persistent data to pickle files."
-        # XXX podría ir en una clase base
-        self._dump_var(self.vars, pickle_vars)
-        self._dump_var(self.zones, pickle_zones)
-
-    def _load(self):
-        r"_load() -> None :: Load all persistent data from pickle files."
-        # XXX podría ir en una clase base
-        self.vars = self._load_var(pickle_vars)
-        self.zones = self._load_var(pickle_zones)
-
-    def _pickle_filename(self, name):
-        r"_pickle_filename() -> string :: Construct a pickle filename."
-        # XXX podría ir en una clase base
-        return path.join(self.pickle_dir, name) + pickle_ext
-
-    def _dump_var(self, var, name):
-        r"_dump_var() -> None :: Dump a especific variable to a pickle file."
-        # XXX podría ir en una clase base
-        pkl_file = file(self._pickle_filename(name), 'wb')
-        pickle.dump(var, pkl_file, 2)
-        pkl_file.close()
-
-    def _load_var(self, name):
-        r"_load_var() -> object :: Load a especific pickle file."
-        # XXX podría ir en una clase base
-        return pickle.load(file(self._pickle_filename(name)))
+    def _get_config_vars(self, config_file):
+        return dict(zones=self.zones.values(), **self.vars)
 
     def _write_config(self):
         r"_write_config() -> None :: Generate all the configuration files."
-        # XXX podría ir en una clase base, ver como generalizar variables a
-        # reemplazar en la template
-        #archivos de zona
         delete_zones = list()
         for a_zone in self.zones.values():
             if a_zone.mod:
                 if not a_zone.new:
                     # TODO freeze de la zona
-                    print 'Freezing zone ' + a_zone.name + zone_filename_ext
-                zone_out_file = file(path.join(self.config_dir, a_zone.name + zone_filename_ext), 'w')
-                ctx = Context(
-                    zone_out_file,
+                    call(('dns', 'freeze', a_zone.name))
+                vars = dict(
                     zone = a_zone,
                     hosts = a_zone.hosts.values(),
                     mxs = a_zone.mxs.values(),
                     nss = a_zone.nss.values()
-                    )
-                self.zone_template.render_context(ctx)
-                zone_out_file.close()
+                )
+                self._write_single_config('zoneX.zone',
+                                            self._zone_filename(a_zone), vars)
                 a_zone.mod = False
                 if not a_zone.new:
                     # TODO unfreeze de la zona
-                    print 'Unfreezing zone ' + a_zone.name + zone_filename_ext
+                    call(('dns', 'unfreeze', a_zone.name))
                 else :
                     self.mod = True
                     a_zone.new = False
@@ -582,7 +493,7 @@ class DnsHandler(Handler):
                 #borro el archivo .zone
                 try:
                     self.mod = True
-                    unlink(path.join(self.config_dir, a_zone.name + zone_filename_ext))
+                    unlink(self._zone_filename(a_zone))
                 except OSError:
                     #la excepcion pude darse en caso que haga un add de una zona y
                     #luego el del, como no hice commit, no se crea el archivo
@@ -592,15 +503,10 @@ class DnsHandler(Handler):
         for z in delete_zones:
             del self.zones[z]
         #archivo general
-        if self.mod :
-            cfg_out_file = file(path.join(self.config_dir, config_filename), 'w')
-            ctx = Context(cfg_out_file, zones=self.zones.values(), **self.vars)
-            self.config_template.render_context(ctx)
-            cfg_out_file.close()
+        if self.mod:
+            self._write_single_config('named.conf')
             self.mod = False
-            print 'Restarting service'
-
-
+            self.reload()
 
 if __name__ == '__main__':
 
@@ -642,26 +548,24 @@ if __name__ == '__main__':
 
     dns.commit()
 
-    print 'ZONAS :'
-    print dns.zone.show() + '\n'
-    print 'HOSTS :'
-    print dns.host.show()
+    print 'ZONAS :', dns.zone.show()
+    print 'HOSTS :', dns.host.show()
 
     #test zone errors
-    try:
-        dns.zone.update('zone-sarasa','lalal')
-    except ZoneNotFoundError, inst:
-        print 'Error: ', inst
+    #try:
+    #    dns.zone.update('zone-sarasa','lalal')
+    #except ZoneNotFoundError, inst:
+    #    print 'Error: ', inst
 
     try:
         dns.zone.delete('zone-sarasa')
     except ZoneNotFoundError, inst:
         print 'Error: ', inst
 
-    try:
-        dns.zone.add('zona_loca.com','ns1.dom.com','ns2.dom.com')
-    except ZoneAlreadyExistsError, inst:
-        print 'Error: ', inst
+    #try:
+    #    dns.zone.add('zona_loca.com','ns1.dom.com','ns2.dom.com')
+    #except ZoneAlreadyExistsError, inst:
+    #    print 'Error: ', inst
 
     #test hosts errors
     try:

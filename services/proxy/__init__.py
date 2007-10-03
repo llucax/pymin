@@ -1,40 +1,14 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from mako.template import Template
-from mako.runtime import Context
-from subprocess import Popen, PIPE
 from os import path
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
-try:
-    from seqtools import Sequence
-except ImportError:
-    # NOP for testing
-    class Sequence: pass
-try:
-    from dispatcher import handler, HandlerError, Handler
-except ImportError:
-    # NOP for testing
-    class HandlerError(RuntimeError): pass
-    class Handler: pass
-    def handler(help):
-        def wrapper(f):
-            return f
-        return wrapper
+from seqtools import Sequence
+from dispatcher import Handler, handler, HandlerError
+from services.util import Restorable, ConfigWriter
+from services.util import InitdHandler, TransactionalHandler
 
-__ALL__ = ('ProxyHandler')
-
-pickle_ext = '.pkl'
-pickle_vars = 'vars'
-pickle_hosts= 'hosts'
-pickle_users = 'users'
-config_filename = 'squid.conf'
-
-template_dir = path.join(path.dirname(__file__), 'templates')
-
+__ALL__ = ('ProxyHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
+            'HostNotFoundError', 'ParameterError', 'ParameterNotFoundError')
 
 class Error(HandlerError):
     r"""
@@ -144,22 +118,34 @@ class HostHandler(Handler):
         return self.hosts.items()
 
 
-class ProxyHandler(Handler):
+class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
+                                            TransactionalHandler):
+
+    _initd_name = 'squid'
+
+    _persistent_vars = ('vars', 'hosts')
+
+    _restorable_defaults = dict(
+            hosts = dict(),
+            vars  = dict(
+                ip   = '192.168.0.1',
+                port = '8080',
+            ),
+    )
+
+    _config_writer_files = 'squid.conf'
+    _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
 
     def __init__(self, pickle_dir='.', config_dir='.'):
-        self.pickle_dir = pickle_dir
-        self.config_dir = config_dir
-        f = path.join(template_dir, config_filename)
-        self.config_template = Template(filename=f)
-        try:
-            self._load()
-        except IOError:
-            self.hosts = dict()
-            self.vars = dict(
-                    ip = '192.168.0.1',
-                    port = '8080',
-                )
+        r"Initialize DhcpHandler object, see class documentation for details."
+        self._persistent_dir = pickle_dir
+        self._config_writer_cfg_dir = config_dir
+        self._config_build_templates()
+        self._restore()
         self.host = HostHandler(self.hosts)
+
+    def _get_config_vars(self, config_file):
+        return dict(hosts=self.hosts.values(), **self.vars)
 
     @handler(u'Set a Proxy parameter')
     def set(self, param, value):
@@ -182,89 +168,6 @@ class ProxyHandler(Handler):
     @handler(u'Get all Proxy parameters, with their values.')
     def show(self):
         return self.vars.values()
-
-    @handler(u'Start the service.')
-    def start(self):
-        r"start() -> None :: Start the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Stop the service.')
-    def stop(self):
-        r"stop() -> None :: Stop the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Restart the service.')
-    def restart(self):
-        r"restart() -> None :: Restart the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        pass
-
-    @handler(u'Reload the service config (without restarting, if possible)')
-    def reload(self):
-        r"reload() -> None :: Reload the configuration of the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria el hook para arrancar el servicio
-        print('reloading configuration')
-
-    @handler(u'Commit the changes (reloading the service, if necessary).')
-    def commit(self):
-        r"commit() -> None :: Commit the changes and reload the DNS service."
-        #esto seria para poner en una interfaz
-        #y seria que hace el pickle deberia llamarse
-        #al hacerse un commit
-        self._dump()
-        self._write_config()
-        self.reload()
-
-    @handler(u'Discard all the uncommited changes.')
-    def rollback(self):
-        r"rollback() -> None :: Discard the changes not yet commited."
-        self._load()
-
-    def _dump(self):
-        r"_dump() -> None :: Dump all persistent data to pickle files."
-        # XXX podría ir en una clase base
-        self._dump_var(self.vars, pickle_vars)
-        self._dump_var(self.hosts, pickle_hosts)
-
-    def _load(self):
-        r"_load() -> None :: Load all persistent data from pickle files."
-        # XXX podría ir en una clase base
-        self.vars = self._load_var(pickle_vars)
-        self.hosts = self._load_var(pickle_hosts)
-
-    def _pickle_filename(self, name):
-        r"_pickle_filename() -> string :: Construct a pickle filename."
-        # XXX podría ir en una clase base
-        return path.join(self.pickle_dir, name) + pickle_ext
-
-    def _dump_var(self, var, name):
-        r"_dump_var() -> None :: Dump a especific variable to a pickle file."
-        # XXX podría ir en una clase base
-        pkl_file = file(self._pickle_filename(name), 'wb')
-        pickle.dump(var, pkl_file, 2)
-        pkl_file.close()
-
-    def _load_var(self, name):
-        r"_load_var() -> object :: Load a especific pickle file."
-        # XXX podría ir en una clase base
-        return pickle.load(file(self._pickle_filename(name)))
-
-    def _write_config(self):
-        r"_write_config() -> None :: Generate all the configuration files."
-        out_file = file(path.join(self.config_dir, config_filename), 'w')
-        ctx = Context(out_file,
-                    ip = self.vars['ip'],
-                    port = self.vars['port'],
-                    hosts = self.hosts.values()
-                    )
-        self.config_template.render_context(ctx)
-        out_file.close()
 
 
 if __name__ == '__main__':
