@@ -5,7 +5,7 @@ from os import path
 from seqtools import Sequence
 from dispatcher import Handler, handler, HandlerError
 from services.util import Restorable, ConfigWriter
-from services.util import InitdHandler, TransactionalHandler
+from services.util import InitdHandler, TransactionalHandler, ParametersHandler
 
 __ALL__ = ('ProxyHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
             'HostNotFoundError', 'ParameterError', 'ParameterNotFoundError')
@@ -119,15 +119,15 @@ class HostHandler(Handler):
 
 
 class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
-                                            TransactionalHandler):
+                   TransactionalHandler, ParametersHandler):
 
     _initd_name = 'squid'
 
-    _persistent_vars = ('vars', 'hosts')
+    _persistent_vars = ('params', 'hosts')
 
     _restorable_defaults = dict(
             hosts = dict(),
-            vars  = dict(
+            params  = dict(
                 ip   = '192.168.0.1',
                 port = '8080',
             ),
@@ -145,29 +145,7 @@ class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
         self.host = HostHandler(self.hosts)
 
     def _get_config_vars(self, config_file):
-        return dict(hosts=self.hosts.values(), **self.vars)
-
-    @handler(u'Set a Proxy parameter')
-    def set(self, param, value):
-        r"set(param, value) -> None :: Set a Proxy parameter."
-        if not param in self.vars:
-            raise ParameterNotFoundError(param)
-        self.vars[param] = value
-
-    @handler(u'Get a DNS parameter')
-    def get(self, param):
-        r"get(param) -> None :: Get a Proxy parameter."
-        if not param in self.vars:
-            raise ParameterNotFoundError(param)
-        return self.vars[param]
-
-    @handler(u'List Proxy parameters')
-    def list(self):
-        return self.vars.keys()
-
-    @handler(u'Get all Proxy parameters, with their values.')
-    def show(self):
-        return self.vars.values()
+        return dict(hosts=self.hosts.values(), **self.params)
 
 
 if __name__ == '__main__':

@@ -72,6 +72,29 @@ class ExecutionError(Error):
             command = ' '.join(command)
         return "Can't execute command %s: %s" % (command, self.error)
 
+class ParameterError(Error, KeyError):
+    r"""
+    ParameterError(paramname) -> ParameterError instance
+
+    This is the base exception for all DhcpHandler parameters related errors.
+    """
+
+    def __init__(self, paramname):
+        r"Initialize the object. See class documentation for more info."
+        self.message = 'Parameter error: "%s"' % paramname
+
+class ParameterNotFoundError(ParameterError):
+    r"""
+    ParameterNotFoundError(hostname) -> ParameterNotFoundError instance
+
+    This exception is raised when trying to operate on a parameter that doesn't
+    exists.
+    """
+
+    def __init__(self, paramname):
+        r"Initialize the object. See class documentation for more info."
+        self.message = 'Parameter not found: "%s"' % paramname
+
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, close_fds=True, universal_newlines=True,
             **kw):
@@ -88,108 +111,6 @@ def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         raise ExecutionError(command, e)
     if r is not 0:
         raise ExecutionError(command, ReturnNot0Error(r))
-
-class ServiceHandler(Handler):
-    r"""ServiceHandler([start[, stop[, restart[, reload]]]]) -> ServiceHandler.
-
-    This is a helper class to inherit from to automatically handle services
-    with start, stop, restart, reload actions.
-
-    The actions can be defined by calling the constructor with all the
-    parameters or in a more declarative way as class attributes, like:
-
-    class TestHandler(ServiceHandler):
-        _service_start = ('command', 'start')
-        _service_stop = ('command', 'stop')
-        _service_restart = ('command', 'restart')
-        _service_reload = 'reload-command'
-
-    Commands are executed without using the shell, that's why they are specified
-    as tuples (where the first element is the command and the others are the
-    command arguments). If only a command is needed (without arguments) a single
-    string can be specified.
-
-    All commands must be specified.
-    """
-    # TODO implement it using metaclasses to add the handlers method by demand
-    # (only for specifieds commands).
-
-    def __init__(self, start=None, stop=None, restart=None, reload=None):
-        r"Initialize the object, see the class documentation for details."
-        for (name, action) in dict(start=start, stop=stop, restart=restart,
-                                                    reload=reload).items():
-            if action is not None:
-                setattr(self, '_service_%s' % name, action)
-
-    @handler(u'Start the service.')
-    def start(self):
-        r"start() -> None :: Start the service."
-        call(self._service_start)
-
-    @handler(u'Stop the service.')
-    def stop(self):
-        r"stop() -> None :: Stop the service."
-        call(self._service_stop)
-
-    @handler(u'Restart the service.')
-    def restart(self):
-        r"restart() -> None :: Restart the service."
-        call(self._service_restart)
-
-    @handler(u'Reload the service config (without restarting, if possible).')
-    def reload(self):
-        r"reload() -> None :: Reload the configuration of the service."
-        call(self._service_reload)
-
-class InitdHandler(Handler):
-    r"""InitdHandler([initd_name[, initd_dir]]) -> InitdHandler.
-
-    This is a helper class to inherit from to automatically handle services
-    with start, stop, restart, reload actions using a /etc/init.d like script.
-
-    The name and directory of the script can be defined by calling the
-    constructor or in a more declarative way as class attributes, like:
-
-    class TestHandler(ServiceHandler):
-        _initd_name = 'some-service'
-        _initd_dir = '/usr/local/etc/init.d'
-
-    The default _initd_dir is '/etc/init.d', _initd_name has no default and
-    must be specified in either way.
-
-    Commands are executed without using the shell.
-    """
-    # TODO implement it using metaclasses to add the handlers method by demand
-    # (only for specifieds commands).
-
-    _initd_dir = '/etc/init.d'
-
-    def __init__(self, initd_name=None, initd_dir=None):
-        r"Initialize the object, see the class documentation for details."
-        if initd_name is not None:
-            self._initd_name = initd_name
-        if initd_dir is not None:
-            self._initd_dir = initd_dir
-
-    @handler(u'Start the service.')
-    def start(self):
-        r"start() -> None :: Start the service."
-        call((path.join(self._initd_dir, self._initd_name), 'start'))
-
-    @handler(u'Stop the service.')
-    def stop(self):
-        r"stop() -> None :: Stop the service."
-        call((path.join(self._initd_dir, self._initd_name), 'stop'))
-
-    @handler(u'Restart the service.')
-    def restart(self):
-        r"restart() -> None :: Restart the service."
-        call((path.join(self._initd_dir, self._initd_name), 'restart'))
-
-    @handler(u'Reload the service config (without restarting, if possible).')
-    def reload(self):
-        r"reload() -> None :: Reload the configuration of the service."
-        call((path.join(self._initd_dir, self._initd_name), 'reload'))
 
 class Persistent:
     r"""Persistent([vars[, dir[, ext]]]) -> Persistent.
@@ -419,8 +340,110 @@ class ConfigWriter:
         for t in self._config_writer_files:
             self._write_single_config(t)
 
+class ServiceHandler(Handler):
+    r"""ServiceHandler([start[, stop[, restart[, reload]]]]) -> ServiceHandler.
+
+    This is a helper class to inherit from to automatically handle services
+    with start, stop, restart, reload actions.
+
+    The actions can be defined by calling the constructor with all the
+    parameters or in a more declarative way as class attributes, like:
+
+    class TestHandler(ServiceHandler):
+        _service_start = ('command', 'start')
+        _service_stop = ('command', 'stop')
+        _service_restart = ('command', 'restart')
+        _service_reload = 'reload-command'
+
+    Commands are executed without using the shell, that's why they are specified
+    as tuples (where the first element is the command and the others are the
+    command arguments). If only a command is needed (without arguments) a single
+    string can be specified.
+
+    All commands must be specified.
+    """
+    # TODO implement it using metaclasses to add the handlers method by demand
+    # (only for specifieds commands).
+
+    def __init__(self, start=None, stop=None, restart=None, reload=None):
+        r"Initialize the object, see the class documentation for details."
+        for (name, action) in dict(start=start, stop=stop, restart=restart,
+                                                    reload=reload).items():
+            if action is not None:
+                setattr(self, '_service_%s' % name, action)
+
+    @handler(u'Start the service.')
+    def start(self):
+        r"start() -> None :: Start the service."
+        call(self._service_start)
+
+    @handler(u'Stop the service.')
+    def stop(self):
+        r"stop() -> None :: Stop the service."
+        call(self._service_stop)
+
+    @handler(u'Restart the service.')
+    def restart(self):
+        r"restart() -> None :: Restart the service."
+        call(self._service_restart)
+
+    @handler(u'Reload the service config (without restarting, if possible).')
+    def reload(self):
+        r"reload() -> None :: Reload the configuration of the service."
+        call(self._service_reload)
+
+class InitdHandler(Handler):
+    r"""InitdHandler([initd_name[, initd_dir]]) -> InitdHandler.
+
+    This is a helper class to inherit from to automatically handle services
+    with start, stop, restart, reload actions using a /etc/init.d like script.
+
+    The name and directory of the script can be defined by calling the
+    constructor or in a more declarative way as class attributes, like:
+
+    class TestHandler(ServiceHandler):
+        _initd_name = 'some-service'
+        _initd_dir = '/usr/local/etc/init.d'
+
+    The default _initd_dir is '/etc/init.d', _initd_name has no default and
+    must be specified in either way.
+
+    Commands are executed without using the shell.
+    """
+    # TODO implement it using metaclasses to add the handlers method by demand
+    # (only for specifieds commands).
+
+    _initd_dir = '/etc/init.d'
+
+    def __init__(self, initd_name=None, initd_dir=None):
+        r"Initialize the object, see the class documentation for details."
+        if initd_name is not None:
+            self._initd_name = initd_name
+        if initd_dir is not None:
+            self._initd_dir = initd_dir
+
+    @handler(u'Start the service.')
+    def start(self):
+        r"start() -> None :: Start the service."
+        call((path.join(self._initd_dir, self._initd_name), 'start'))
+
+    @handler(u'Stop the service.')
+    def stop(self):
+        r"stop() -> None :: Stop the service."
+        call((path.join(self._initd_dir, self._initd_name), 'stop'))
+
+    @handler(u'Restart the service.')
+    def restart(self):
+        r"restart() -> None :: Restart the service."
+        call((path.join(self._initd_dir, self._initd_name), 'restart'))
+
+    @handler(u'Reload the service config (without restarting, if possible).')
+    def reload(self):
+        r"reload() -> None :: Reload the configuration of the service."
+        call((path.join(self._initd_dir, self._initd_name), 'reload'))
+
 class TransactionalHandler(Handler):
-    r"""TransactionalHandler([initd_name[, initd_dir]]) -> TransactionalHandler.
+    r"""Handle command transactions providing a commit and rollback commands.
 
     This is a helper class to inherit from to automatically handle
     transactional handlers, which have commit and rollback commands.
@@ -450,6 +473,54 @@ class TransactionalHandler(Handler):
         r"rollback() -> None :: Discard the changes not yet commited."
         if hasattr(self, '_load'):
             self._load()
+
+class ParametersHandler(Handler):
+    r"""ParametersHandler([attr]) -> ParametersHandler.
+
+    This is a helper class to inherit from to automatically handle
+    service parameters, providing set, get, list and show commands.
+
+    The attribute that holds the parameters can be defined by calling the
+    constructor or in a more declarative way as class attributes, like:
+
+    class TestHandler(ServiceHandler):
+        _parameters_attr = 'some_attr'
+
+    The default is 'params' and it should be a dictionary.
+    """
+    # TODO implement it using metaclasses to add the handlers method by demand
+    # (only for specifieds commands).
+
+    _parameters_attr = 'params'
+
+    def __init__(self, attr=None):
+        r"Initialize the object, see the class documentation for details."
+        if attr is not None:
+            self._parameters_attr = attr
+
+    @handler(u'Set a service parameter.')
+    def set(self, param, value):
+        r"set(param, value) -> None :: Set a service parameter."
+        if not param in self.params:
+            raise ParameterNotFoundError(param)
+        self.params[param] = value
+
+    @handler(u'Get a service parameter.')
+    def get(self, param):
+        r"get(param) -> None :: Get a service parameter."
+        if not param in self.params:
+            raise ParameterNotFoundError(param)
+        return self.params[param]
+
+    @handler(u'List all available service parameters.')
+    def list(self):
+        r"list() -> tuple :: List all the parameter names."
+        return self.params.keys()
+
+    @handler(u'Get all service parameters, with their values.')
+    def show(self):
+        r"show() -> (key, value) tuples :: List all the parameters."
+        return self.params.items()
 
 
 if __name__ == '__main__':

@@ -5,10 +5,10 @@ from os import path
 from seqtools import Sequence
 from dispatcher import Handler, handler, HandlerError
 from services.util import Restorable, ConfigWriter
-from services.util import InitdHandler, TransactionalHandler
+from services.util import InitdHandler, TransactionalHandler, ParametersHandler
 
 __ALL__ = ('DhcpHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
-            'HostNotFoundError', 'ParameterError', 'ParameterNotFoundError')
+            'HostNotFoundError')
 
 class Error(HandlerError):
     r"""
@@ -60,29 +60,6 @@ class HostNotFoundError(HostError):
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Host not found: "%s"' % hostname
-
-class ParameterError(Error, KeyError):
-    r"""
-    ParameterError(paramname) -> ParameterError instance
-
-    This is the base exception for all DhcpHandler parameters related errors.
-    """
-
-    def __init__(self, paramname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = 'Parameter error: "%s"' % paramname
-
-class ParameterNotFoundError(ParameterError):
-    r"""
-    ParameterNotFoundError(hostname) -> ParameterNotFoundError instance
-
-    This exception is raised when trying to operate on a parameter that doesn't
-    exists.
-    """
-
-    def __init__(self, paramname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = 'Parameter not found: "%s"' % paramname
 
 
 class Host(Sequence):
@@ -157,7 +134,8 @@ class HostHandler(Handler):
         r"show() -> list of Hosts :: List all the complete hosts information."
         return self.hosts.values()
 
-class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
+class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
+                  ParametersHandler):
     r"""DhcpHandler([pickle_dir[, config_dir]]) -> DhcpHandler instance.
 
     Handles DHCP service commands for the dhcpd program.
@@ -171,11 +149,11 @@ class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
 
     _initd_name = 'dhcpd'
 
-    _persistent_vars = ('vars', 'hosts')
+    _persistent_vars = ('params', 'hosts')
 
     _restorable_defaults = dict(
             hosts = dict(),
-            vars  = dict(
+            params  = dict(
                 domain_name = 'example.com',
                 dns_1       = 'ns1.example.com',
                 dns_2       = 'ns2.example.com',
@@ -199,31 +177,7 @@ class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
         self.host = HostHandler(self.hosts)
 
     def _get_config_vars(self, config_file):
-        return dict(hosts=self.hosts.values(), **self.vars)
-
-    @handler(u'Set a DHCP parameter.')
-    def set(self, param, value):
-        r"set(param, value) -> None :: Set a DHCP parameter."
-        if not param in self.vars:
-            raise ParameterNotFoundError(param)
-        self.vars[param] = value
-
-    @handler(u'Get a DHCP parameter.')
-    def get(self, param):
-        r"get(param) -> None :: Get a DHCP parameter."
-        if not param in self.vars:
-            raise ParameterNotFoundError(param)
-        return self.vars[param]
-
-    @handler(u'List all available DHCP parameters.')
-    def list(self):
-        r"list() -> tuple :: List all the parameter names."
-        return self.vars.keys()
-
-    @handler(u'Get all DHCP parameters, with their values.')
-    def show(self):
-        r"show() -> (key, value) tuples :: List all the parameters."
-        return self.vars.items()
+        return dict(hosts=self.hosts.values(), **self.params)
 
 if __name__ == '__main__':
 

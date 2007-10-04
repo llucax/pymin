@@ -8,15 +8,14 @@ from new import instancemethod
 from seqtools import Sequence
 from dispatcher import handler, HandlerError, Handler
 from services.util import Restorable, ConfigWriter, call
-from services.util import InitdHandler, TransactionalHandler
+from services.util import InitdHandler, TransactionalHandler, ParametersHandler
 
 __ALL__ = ('DnsHandler', 'Error',
             'ZoneError', 'ZoneNotFoundError', 'ZoneAlreadyExistsError',
             'HostError', 'HostAlreadyExistsError', 'HostNotFoundError',
             'MailExchangeError', 'MailExchangeAlreadyExistsError',
             'MailExchangeNotFoundError', 'NameServerError',
-            'NameServerAlreadyExistsError', 'NameServerNotFoundError',
-            'ParameterError', 'ParameterNotFoundError')
+            'NameServerAlreadyExistsError', 'NameServerNotFoundError')
 
 template_dir = path.join(path.dirname(__file__), 'templates')
 
@@ -396,7 +395,8 @@ class ZoneHandler(Handler):
     def show(self):
         return self.zones.values()
 
-class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
+class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
+                 ParametersHandler):
     r"""DnsHandler([pickle_dir[, config_dir]]) -> DnsHandler instance.
 
     Handles DNS service commands for the dns program.
@@ -410,11 +410,11 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
 
     _initd_name = 'bind'
 
-    _persistent_vars = ('vars', 'zones')
+    _persistent_vars = ('params', 'zones')
 
     _restorable_defaults = dict(
             zones = dict(),
-            vars  = dict(
+            params  = dict(
                 isp_dns1 = '',
                 isp_dns2 = '',
                 bind_addr1 = '',
@@ -437,34 +437,11 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler):
         self.mx = MailExchangeHandler(self.zones)
         self.ns = NameServerHandler(self.zones)
 
-    @handler(u'Set a DNS parameter')
-    def set(self, param, value):
-        r"set(param, value) -> None :: Set a DNS parameter."
-        if not param in self.vars:
-            raise ParameterNotFoundError(param)
-        self.vars[param] = value
-        self.mod = True
-
-    @handler(u'Get a DNS parameter')
-    def get(self, param):
-        r"get(param) -> None :: Get a DNS parameter."
-        if not param in self.vars:
-            raise ParameterNotFoundError(param)
-        return self.vars[param]
-
-    @handler(u'List DNS parameters')
-    def list(self):
-        return self.vars.keys()
-
-    @handler(u'Get all DNS parameters, with their values.')
-    def show(self):
-        return self.vars.values()
-
     def _zone_filename(self, zone):
         return zone.name + '.zone'
 
     def _get_config_vars(self, config_file):
-        return dict(zones=self.zones.values(), **self.vars)
+        return dict(zones=self.zones.values(), **self.params)
 
     def _write_config(self):
         r"_write_config() -> None :: Generate all the configuration files."

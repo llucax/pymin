@@ -7,8 +7,8 @@ from os import path
 
 from seqtools import Sequence
 from dispatcher import Handler, handler, HandlerError
-from services.util import ServiceHandler, TransactionalHandler
 from services.util import Restorable, ConfigWriter
+from services.util import ServiceHandler, TransactionalHandler
 
 __ALL__ = ('FirewallHandler', 'Error', 'RuleError', 'RuleAlreadyExistsError',
            'RuleNotFoundError')
@@ -174,7 +174,7 @@ class RuleHandler(Handler):
         return self.rules
 
 class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
-                                                        TransactionalHandler):
+                      TransactionalHandler):
     r"""FirewallHandler([pickle_dir[, config_dir]]) -> FirewallHandler instance.
 
     Handles firewall commands using iptables.
