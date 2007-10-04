@@ -5,10 +5,10 @@ from os import path
 from os import unlink
 from new import instancemethod
 
-from seqtools import Sequence
-from dispatcher import handler, HandlerError, Handler
-from services.util import Restorable, ConfigWriter, call
-from services.util import InitdHandler, TransactionalHandler, ParametersHandler
+from pymin.seqtools import Sequence
+from pymin.dispatcher import handler, HandlerError, Handler
+from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
+                                TransactionalHandler, ParametersHandler, call
 
 __ALL__ = ('DnsHandler', 'Error',
             'ZoneError', 'ZoneNotFoundError', 'ZoneAlreadyExistsError',
@@ -48,7 +48,6 @@ class ZoneError(Error, KeyError):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Zone error: "%s"' % zonename
 
-
 class ZoneNotFoundError(ZoneError):
     r"""
     ZoneNotFoundError(hostname) -> ZoneNotFoundError instance
@@ -61,7 +60,6 @@ class ZoneNotFoundError(ZoneError):
         r"Initialize the object. See class documentation for more info."
         self.message = 'zone not found: "%s"' % zonename
 
-
 class ZoneAlreadyExistsError(ZoneError):
     r"""
     ZoneAlreadyExistsError(hostname) -> ZoneAlreadyExistsError instance
@@ -72,7 +70,6 @@ class ZoneAlreadyExistsError(ZoneError):
     def __init__(self, zonename):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Zone already exists: "%s"' % zonename
-
 
 class HostError(Error, KeyError):
     r"""
@@ -108,7 +105,6 @@ class HostNotFoundError(HostError):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Host not found: "%s"' % hostname
 
-
 class MailExchangeError(Error, KeyError):
     r"""
     MailExchangeError(hostname) -> MailExchangeError instance
@@ -119,7 +115,6 @@ class MailExchangeError(Error, KeyError):
     def __init__(self, mx):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Mail Exchange error: "%s"' % mx
-
 
 class MailExchangeAlreadyExistsError(MailExchangeError):
     r"""
@@ -132,7 +127,6 @@ class MailExchangeAlreadyExistsError(MailExchangeError):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Mail Exchange already exists: "%s"' % mx
 
-
 class MailExchangeNotFoundError(MailExchangeError):
     r"""
     MailExchangeNotFoundError(hostname) -> MailExchangeNotFoundError instance
@@ -144,8 +138,6 @@ class MailExchangeNotFoundError(MailExchangeError):
     def __init__(self, mx):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Mail Exchange not found: "%s"' % mx
-
-
 
 class NameServerError(Error, KeyError):
     r"""
@@ -181,29 +173,6 @@ class NameServerNotFoundError(NameServerError):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Mail Exchange not found: "%s"' % ns
 
-
-class ParameterError(Error, KeyError):
-    r"""
-    ParameterError(paramname) -> ParameterError instance
-
-    This is the base exception for all DhcpHandler parameters related errors.
-    """
-
-    def __init__(self, paramname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = 'Parameter error: "%s"' % paramname
-
-class ParameterNotFoundError(ParameterError):
-    r"""
-    ParameterNotFoundError(hostname) -> ParameterNotFoundError instance
-
-    This exception is raised when trying to operate on a parameter that doesn't
-    exists.
-    """
-
-    def __init__(self, paramname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = 'Parameter not found: "%s"' % paramname
 
 class Host(Sequence):
     def __init__(self, name, ip):
@@ -395,6 +364,7 @@ class ZoneHandler(Handler):
     def show(self):
         return self.zones.values()
 
+
 class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                  ParametersHandler):
     r"""DnsHandler([pickle_dir[, config_dir]]) -> DnsHandler instance.
@@ -484,6 +454,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
             self._write_single_config('named.conf')
             self.mod = False
             self.reload()
+
 
 if __name__ == '__main__':
 

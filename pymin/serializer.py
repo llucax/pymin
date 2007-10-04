@@ -1,7 +1,7 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-import ucsv
-import seqtools
+from pymin import ucsv
+from pymin import seqtools
 
 r"UTF-8 encoded CSV serializer."
 

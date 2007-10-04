@@ -1,7 +1,7 @@
 # vim: set et sts=4 sw=4 encoding=utf-8 :
 
-from services import *
-from dispatcher import handler
+from pymin.services import *
+from pymin.dispatcher import handler
 
 # XXX for testing only
 @handler

@@ -9,7 +9,7 @@ try:
 except ImportError:
     import pickle
 
-from dispatcher import Handler, handler, HandlerError
+from pymin.dispatcher import Handler, handler, HandlerError
 
 #DEBUG = False
 DEBUG = True
@@ -94,6 +94,7 @@ class ParameterNotFoundError(ParameterError):
     def __init__(self, paramname):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Parameter not found: "%s"' % paramname
+
 
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, close_fds=True, universal_newlines=True,
@@ -339,6 +340,7 @@ class ConfigWriter:
         r"_write_config() -> None :: Generate all the configuration files."
         for t in self._config_writer_files:
             self._write_single_config(t)
+
 
 class ServiceHandler(Handler):
     r"""ServiceHandler([start[, stop[, restart[, reload]]]]) -> ServiceHandler.

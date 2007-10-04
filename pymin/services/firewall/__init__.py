@@ -5,10 +5,10 @@
 
 from os import path
 
-from seqtools import Sequence
-from dispatcher import Handler, handler, HandlerError
-from services.util import Restorable, ConfigWriter
-from services.util import ServiceHandler, TransactionalHandler
+from pymin.seqtools import Sequence
+from pymin.dispatcher import Handler, handler, HandlerError
+from pymin.services.util import Restorable, ConfigWriter, ServiceHandler, \
+                                TransactionalHandler
 
 __ALL__ = ('FirewallHandler', 'Error', 'RuleError', 'RuleAlreadyExistsError',
            'RuleNotFoundError')
@@ -63,6 +63,7 @@ class RuleNotFoundError(RuleError):
     def __init__(self, rule):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Rule not found: "%s"' % rule
+
 
 class Rule(Sequence):
     r"""Rule(chain, target[, src[, dst[, ...]]]) -> Rule instance.
@@ -173,6 +174,7 @@ class RuleHandler(Handler):
         r"show() -> list of Rules :: List all the complete rules information."
         return self.rules
 
+
 class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
                       TransactionalHandler):
     r"""FirewallHandler([pickle_dir[, config_dir]]) -> FirewallHandler instance.
@@ -208,6 +210,7 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
 
     def _get_config_vars(self, config_file):
         return dict(rules=self.rules)
+
 
 if __name__ == '__main__':
 

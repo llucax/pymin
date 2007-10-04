@@ -1,8 +1,0 @@
-# vim: set encoding=utf-8 et sw=4 sts=4 :
-
-from services.dhcp import DhcpHandler
-from services.dns import DnsHandler
-from services.firewall import FirewallHandler
-from services.ip import IpHandler
-from services.proxy import ProxyHandler
-

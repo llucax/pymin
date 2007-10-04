@@ -2,13 +2,13 @@
 
 from os import path
 
-from seqtools import Sequence
-from dispatcher import Handler, handler, HandlerError
-from services.util import Restorable, ConfigWriter
-from services.util import InitdHandler, TransactionalHandler, ParametersHandler
+from pymin.seqtools import Sequence
+from pymin.dispatcher import Handler, handler, HandlerError
+from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
+                                TransactionalHandler, ParametersHandler
 
 __ALL__ = ('ProxyHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
-            'HostNotFoundError', 'ParameterError', 'ParameterNotFoundError')
+            'HostNotFoundError')
 
 class Error(HandlerError):
     r"""
@@ -61,28 +61,6 @@ class HostNotFoundError(HostError):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Host not found: "%s"' % hostname
 
-class ParameterError(Error, KeyError):
-    r"""
-    ParameterError(paramname) -> ParameterError instance
-
-    This is the base exception for all DhcpHandler parameters related errors.
-    """
-
-    def __init__(self, paramname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = 'Parameter error: "%s"' % paramname
-
-class ParameterNotFoundError(ParameterError):
-    r"""
-    ParameterNotFoundError(hostname) -> ParameterNotFoundError instance
-
-    This exception is raised when trying to operate on a parameter that doesn't
-    exists.
-    """
-
-    def __init__(self, paramname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = 'Parameter not found: "%s"' % paramname
 
 class Host(Sequence):
 

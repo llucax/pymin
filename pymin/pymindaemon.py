@@ -11,9 +11,8 @@ command-line.
 import signal
 import socket
 
-import dispatcher
-import eventloop
-import serializer
+from pymin import eventloop
+from pymin import serializer
 
 class PyminDaemon(eventloop.EventLoop):
     r"""PyminDaemon(bind_addr, routes) -> PyminDaemon instance
@@ -45,7 +44,7 @@ class PyminDaemon(eventloop.EventLoop):
         # Create EventLoop
         eventloop.EventLoop.__init__(self, sock)
         # Create Dispatcher
-        self.dispatcher = dispatcher.Dispatcher(routes)
+        self.dispatcher = Dispatcher(routes)
         # Signal handling
         def quit(signum, frame):
             print "Shuting down ..."

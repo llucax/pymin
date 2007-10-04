@@ -3,13 +3,14 @@
 from subprocess import Popen, PIPE
 from os import path
 
-from seqtools import Sequence
-from dispatcher import handler, HandlerError, Handler
-from services.util import Restorable, ConfigWriter
-from services.util import InitdHandler, TransactionalHandler
+from pymin.seqtools import Sequence
+from pymin.dispatcher import handler, HandlerError, Handler
+from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
+                                TransactionalHandler
 
-__ALL__ = ('IpHandler','Error','DeviceError','DeviceNotFoundError','RouteError','RouteNotFoundError',
-            'RouteAlreadyExistsError','AddressError','AddressNotFoundError','AddressAlreadyExistsError')
+__ALL__ = ('IpHandler', 'Error','DeviceError', 'DeviceNotFoundError',
+           'RouteError', 'RouteNotFoundError', 'RouteAlreadyExistsError',
+           'AddressError', 'AddressNotFoundError', 'AddressAlreadyExistsError')
 
 class Error(HandlerError):
     r"""
@@ -67,6 +68,7 @@ class RouteAlreadyExistsError(RouteError):
 
     def __init__(self, route):
         self.message = 'Route already exists : "%s"' % route
+
 
 class Route(Sequence):
 
@@ -134,6 +136,7 @@ class RouteHandler(Handler):
             k = list()
         return k
 
+
 class Address(Sequence):
 
     def __init__(self, ip, prefix, broadcast):
@@ -187,6 +190,7 @@ class AddressHandler(Handler):
             k = list()
         return k
 
+
 class Device(Sequence):
 
     def __init__(self, name, mac):
@@ -229,6 +233,7 @@ class DeviceHandler(Handler):
     @handler(u'Get information about a device')
     def show(self):
         return self.devices.items()
+
 
 def get_devices():
     p = Popen(('ip', 'link', 'list'), stdout=PIPE, close_fds=True)

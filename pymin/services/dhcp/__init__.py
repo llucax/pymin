@@ -2,10 +2,10 @@
 
 from os import path
 
-from seqtools import Sequence
-from dispatcher import Handler, handler, HandlerError
-from services.util import Restorable, ConfigWriter
-from services.util import InitdHandler, TransactionalHandler, ParametersHandler
+from pymin.seqtools import Sequence
+from pymin.dispatcher import Handler, handler, HandlerError
+from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
+                                TransactionalHandler, ParametersHandler
 
 __ALL__ = ('DhcpHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
             'HostNotFoundError')
@@ -134,6 +134,7 @@ class HostHandler(Handler):
         r"show() -> list of Hosts :: List all the complete hosts information."
         return self.hosts.values()
 
+
 class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                   ParametersHandler):
     r"""DhcpHandler([pickle_dir[, config_dir]]) -> DhcpHandler instance.
@@ -178,6 +179,7 @@ class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     def _get_config_vars(self, config_file):
         return dict(hosts=self.hosts.values(), **self.params)
+
 
 if __name__ == '__main__':
 
