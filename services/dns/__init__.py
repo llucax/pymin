@@ -410,7 +410,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     _initd_name = 'bind'
 
-    _persistent_vars = ('params', 'zones')
+    _persistent_attrs = ('params', 'zones')
 
     _restorable_defaults = dict(
             zones = dict(),

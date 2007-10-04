@@ -123,7 +123,7 @@ class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
 
     _initd_name = 'squid'
 
-    _persistent_vars = ('params', 'hosts')
+    _persistent_attrs = ('params', 'hosts')
 
     _restorable_defaults = dict(
             hosts = dict(),

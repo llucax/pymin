@@ -186,7 +186,7 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
     Both defaults to the current working directory.
     """
 
-    _persistent_vars = 'rules'
+    _persistent_attrs = 'rules'
 
     _restorable_defaults = dict(rules=list())
 

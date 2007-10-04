@@ -149,7 +149,7 @@ class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     _initd_name = 'dhcpd'
 
-    _persistent_vars = ('params', 'hosts')
+    _persistent_attrs = ('params', 'hosts')
 
     _restorable_defaults = dict(
             hosts = dict(),

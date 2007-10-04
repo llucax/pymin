@@ -246,7 +246,7 @@ def get_devices():
 
 class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
-    _persistent_vars = 'devices'
+    _persistent_attrs = 'devices'
 
     _restorable_defaults = dict(devices=get_devices())
 

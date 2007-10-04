@@ -113,17 +113,17 @@ def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         raise ExecutionError(command, ReturnNot0Error(r))
 
 class Persistent:
-    r"""Persistent([vars[, dir[, ext]]]) -> Persistent.
+    r"""Persistent([attrs[, dir[, ext]]]) -> Persistent.
 
     This is a helper class to inherit from to automatically handle data
     persistence using pickle.
 
-    The variables attributes to persist (vars), and the pickle directory (dir)
+    The variables attributes to persist (attrs), and the pickle directory (dir)
     and file extension (ext) can be defined by calling the constructor or in a
     more declarative way as class attributes, like:
 
     class TestHandler(Persistent):
-        _persistent_vars = ('some_var', 'other_var')
+        _persistent_attrs = ('some_attr', 'other_attr')
         _persistent_dir = 'persistent-data'
         _persistent_ext = '.pickle'
 
@@ -138,14 +138,14 @@ class Persistent:
     # TODO implement it using metaclasses to add the handlers method by demand
     # (only for specifieds commands).
 
-    _persistent_vars = ()
+    _persistent_attrs = ()
     _persistent_dir = '.'
     _persistent_ext = '.pkl'
 
-    def __init__(self, vars=None, dir=None, ext=None):
+    def __init__(self, attrs=None, dir=None, ext=None):
         r"Initialize the object, see the class documentation for details."
-        if vars is not None:
-            self._persistent_vars = vars
+        if attrs is not None:
+            self._persistent_attrs = attrs
         if dir is not None:
             self._persistent_dir = dir
         if ext is not None:
@@ -153,28 +153,28 @@ class Persistent:
 
     def _dump(self):
         r"_dump() -> None :: Dump all persistent data to pickle files."
-        if isinstance(self._persistent_vars, basestring):
-            self._persistent_vars = (self._persistent_vars,)
-        for varname in self._persistent_vars:
-            self._dump_var(varname)
+        if isinstance(self._persistent_attrs, basestring):
+            self._persistent_attrs = (self._persistent_attrs,)
+        for attrname in self._persistent_attrs:
+            self._dump_attr(attrname)
 
     def _load(self):
         r"_load() -> None :: Load all persistent data from pickle files."
-        if isinstance(self._persistent_vars, basestring):
-            self._persistent_vars = (self._persistent_vars,)
-        for varname in self._persistent_vars:
-            self._load_var(varname)
+        if isinstance(self._persistent_attrs, basestring):
+            self._persistent_attrs = (self._persistent_attrs,)
+        for attrname in self._persistent_attrs:
+            self._load_attr(attrname)
 
-    def _dump_var(self, varname):
-        r"_dump_var() -> None :: Dump a especific variable to a pickle file."
-        f = file(self._pickle_filename(varname), 'wb')
-        pickle.dump(getattr(self, varname), f, 2)
+    def _dump_attr(self, attrname):
+        r"_dump_attr() -> None :: Dump a specific variable to a pickle file."
+        f = file(self._pickle_filename(attrname), 'wb')
+        pickle.dump(getattr(self, attrname), f, 2)
         f.close()
 
-    def _load_var(self, varname):
-        r"_load_var() -> object :: Load a especific pickle file."
-        f = file(self._pickle_filename(varname))
-        setattr(self, varname, pickle.load(f))
+    def _load_attr(self, attrname):
+        r"_load_attr() -> object :: Load a specific pickle file."
+        f = file(self._pickle_filename(attrname))
+        setattr(self, attrname, pickle.load(f))
         f.close()
 
     def _pickle_filename(self, name):
@@ -192,14 +192,14 @@ class Restorable(Persistent):
     declarative way as class attributes, like:
 
     class TestHandler(Restorable):
-        _persistent_vars = ('some_var', 'other_var')
+        _persistent_attrs = ('some_attr', 'other_attr')
         _restorable_defaults = dict(
-                some_var = 'some_default',
-                other_var = 'other_default')
+                some_attr = 'some_default',
+                other_attr = 'other_default')
 
-    The defaults is a dictionary, very coupled with the _persistent_vars
+    The defaults is a dictionary, very coupled with the _persistent_attrs
     attribute inherited from Persistent. The defaults keys should be the
-    values from _persistent_vars, and the values the default values.
+    values from _persistent_attrs, and the values the default values.
 
     The _restore() method returns True if the data was restored successfully
     or False if the defaults were loaded (in case you want to take further
@@ -569,7 +569,7 @@ if __name__ == '__main__':
     # Persistent test
     print 'PTestHandler'
     class PTestHandler(Persistent):
-        _persistent_vars = 'vars'
+        _persistent_attrs = 'vars'
         def __init__(self):
             self.vars = dict(a=1, b=2)
     h = PTestHandler()
@@ -591,7 +591,7 @@ if __name__ == '__main__':
     # Restorable test
     print 'RTestHandler'
     class RTestHandler(Restorable):
-        _persistent_vars = 'vars'
+        _persistent_attrs = 'vars'
         _restorable_defaults = dict(vars=dict(a=1, b=2))
         def __init__(self):
             self._restore()
