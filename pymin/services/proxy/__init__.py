@@ -7,6 +7,8 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, ParametersHandler
 
+import crypt
+
 __ALL__ = ('ProxyHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
             'HostNotFoundError')
 
@@ -96,12 +98,27 @@ class HostHandler(Handler):
         return self.hosts.items()
 
 
+class UserHandler(Handler):
+
+    def __init__(self, users):
+        self.users = users
+
+    def add(self, user, password):
+        if user in self.users:
+            raise UserAlreadyExistsError(user)
+        self.users[user] = crypt.crypt(password,'BA')
+
+    def delete(self, user):
+        if not user in self.users:
+            raise UserNotFound(user)
+        del self.users[user]
+
 class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
                    TransactionalHandler, ParametersHandler):
 
     _initd_name = 'squid'
 
-    _persistent_attrs = ('params', 'hosts')
+    _persistent_attrs = ('params', 'hosts', 'users')
 
     _restorable_defaults = dict(
             hosts = dict(),
@@ -109,9 +126,10 @@ class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
                 ip   = '192.168.0.1',
                 port = '8080',
             ),
+            users = dict(),
     )
 
-    _config_writer_files = 'squid.conf'
+    _config_writer_files = ('squid.conf','users.conf')
     _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
 
     def __init__(self, pickle_dir='.', config_dir='.'):
@@ -121,9 +139,12 @@ class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
         self._config_build_templates()
         self._restore()
         self.host = HostHandler(self.hosts)
+        self.user = UserHandler(self.users)
 
     def _get_config_vars(self, config_file):
-        return dict(hosts=self.hosts.values(), **self.params)
+        if config_file == 'squid.conf':
+            return dict(hosts=self.hosts.values(), **self.params)
+        return dict(users=self.users)
 
 
 if __name__ == '__main__':
@@ -135,4 +156,6 @@ if __name__ == '__main__':
     px.host.add('192.168.0.25.26')
     px.host.add('192.168.0.25.27')
     px.host.delete('192.168.0.25.27')
+    px.user.add('lala','soronga')
+    px.user.add('culo','sarasa')
     px.commit()
