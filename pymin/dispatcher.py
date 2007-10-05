@@ -294,15 +294,13 @@ def parse_command(command):
     return (seq, dic)
 
 class Dispatcher:
-    r"""Dispatcher([routes]) -> Dispatcher instance :: Command dispatcher
+    r"""Dispatcher([root]) -> Dispatcher instance :: Command dispatcher.
 
     This class provides a modular and extensible dispatching mechanism. You
-    can specify root 'routes' (as a dict where the key is the string of the
-    root command and the value is a callable object to handle that command,
-    or a subcommand if the callable is an instance and the command can be
-    sub-routed).
+    specify a root handler (probably as a pymin.dispatcher.Handler subclass),
 
-    The command can have arguments, separated by (any number of) spaces.
+    The command can have arguments, separated by (any number of) spaces and
+    keyword arguments (see parse_command for more details).
 
     The dispatcher tries to route the command as deeply as it can, passing
     the other "path" components as arguments to the callable. To route the
@@ -311,25 +309,26 @@ class Dispatcher:
 
     Example:
     >>> d = Dispatcher(dict(handler=some_handler))
-    >>> d.dispatch('handler attribute method arg1 arg2 "third argument"')
+    >>> d.dispatch('handler attribute method arg1 "arg 2" arg=3')
 
     If 'some_handler' is an object with an 'attribute' that is another
     object which has a method named 'method', then
-    some_handler.attribute.method('arg1', 'arg2') will be called. If
-    some_handler is a function, then some_handler('attribute', 'method',
-    'arg1', 'arg2') will be called. The handler "tree" can be as complex
-    and deep as you want.
+    some_handler.attribute.method('arg1', 'arg 2', arg=3) will be called.
+    If some_handler is a function, then some_handler('attribute', 'method',
+    'arg1', 'arg 2', arg=3) will be called. The handler "tree" can be as
+    complex and deep as you want.
 
-    If some command can't be dispatched (because there is no root handler or
-    there is no matching callable attribute), a CommandNotFoundError is raised.
+    If some command can't be dispatched (because there is no root handler
+    or there is no matching callable attribute), a CommandNotFoundError
+    is raised.
     """
 
-    def __init__(self, routes=dict()):
+    def __init__(self, root):
         r"""Initialize the Dispatcher object.
 
         See Dispatcher class documentation for more info.
         """
-        self.routes = routes
+        self.root = root
 
     def dispatch(self, route):
         r"""dispatch(route) -> None :: Dispatch a command string.
@@ -342,11 +341,7 @@ class Dispatcher:
         (route, kwargs) = parse_command(route)
         if not route:
             raise CommandNotFoundError(command)
-        command.append(route[0])
-        handler = self.routes.get(route[0], None)
-        if handler is None:
-            raise CommandNotFoundError(command)
-        route = route[1:]
+        handler = self.root
         while not is_handler(handler):
             if len(route) is 0:
                 raise CommandNotFoundError(command)
@@ -378,12 +373,11 @@ if __name__ == '__main__':
             print 'class.cmd2:', args
         subclass = TestClassSubHandler()
 
-    test_class = TestClass()
+    class RootHandler(Handler):
+        func = staticmethod(test_func)
+        inst = TestClass()
 
-    d = Dispatcher(dict(
-            func=test_func,
-            inst=test_class,
-    ))
+    d = Dispatcher(RootHandler())
 
     d.dispatch(r'''func arg1 arg2 arg3 "fourth 'argument' with \", a\ttab and\n\\n"''')
     print 'inst commands:', tuple(d.dispatch('inst commands'))
@@ -404,6 +398,8 @@ if __name__ == '__main__':
         d.dispatch('inst cmd3 arg1 arg2 arg3')
     except CommandNotFoundError, e:
         print 'Not found:', e
+    print
+    print
 
     # Parser tests
     p = parse_command('hello world')

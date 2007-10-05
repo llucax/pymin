@@ -1,36 +1,24 @@
 # vim: set et sts=4 sw=4 encoding=utf-8 :
 
 from pymin.services import *
-from pymin.dispatcher import handler
+from pymin.dispatcher import Handler
 
-# XXX for testing only
-@handler
-def test_func(*args):
-    print 'func:', args
-
-routes = dict \
-(
+class Root(Handler):
     dhcp = DhcpHandler(
         pickle_dir = 'var/lib/pymin/pickle/dhcp',
-        config_dir = 'var/lib/pymin/config/dhcp',
-    ),
+        config_dir = 'var/lib/pymin/config/dhcp')
     dns = DnsHandler(
         pickle_dir = 'var/lib/pymin/pickle/dns',
-        config_dir = 'var/lib/pymin/config/dns',
-    ),
+        config_dir = 'var/lib/pymin/config/dns')
     firewall = FirewallHandler(
         pickle_dir = 'var/lib/pymin/pickle/firewall',
-        config_dir = 'var/lib/pymin/config/firewall',
-    ),
+        config_dir = 'var/lib/pymin/config/firewall')
     ip = IpHandler(
         pickle_dir = 'var/lib/pymin/pickle/ip',
-        config_dir = 'var/lib/pymin/config/ip',
-    ),
+        config_dir = 'var/lib/pymin/config/ip')
     proxy = ProxyHandler(
         pickle_dir = 'var/lib/pymin/pickle/proxy',
-        config_dir = 'var/lib/pymin/config/proxy',
-    ),
-)
+        config_dir = 'var/lib/pymin/config/proxy')
 
 bind_addr = \
 (
