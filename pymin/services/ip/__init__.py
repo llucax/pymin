@@ -6,7 +6,7 @@ from os import path
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler
+                                TransactionalHandler, call
 
 __ALL__ = ('IpHandler', 'Error','DeviceError', 'DeviceNotFoundError',
            'RouteError', 'RouteNotFoundError', 'RouteAlreadyExistsError',
@@ -215,14 +215,14 @@ class DeviceHandler(Handler):
     @handler(u'Bring the device up')
     def up(self, name):
         if name in self.devices:
-            print self.device_template.render(dev=name, action='up')
+            call(self.device_template.render(dev=name, action='up'), shell=True)
         else:
             raise DeviceNotFoundError(name)
 
     @handler(u'Bring the device down')
     def down(self, name):
         if name in self.devices:
-            print self.device_template.render(dev=name, action='down')
+            call(self.device_template.render(dev=name, action='down'), shell=True)
         else:
             raise DeviceNotFoundError(name)
 
@@ -274,24 +274,24 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            print self._render_config('route_flush', dict(dev=device.name))
-            print self._render_config('ip_flush', dict(dev=device.name))
+            call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+            call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
             for address in device.addrs.values():
-                print self._render_config('ip_add', dict(
+                call(self._render_config('ip_add', dict(
                         dev = device.name,
                         addr = address.ip,
                         prefix = address.prefix,
                         broadcast = address.broadcast,
                     )
-                )
+                ), shell=True)
             for route in device.routes:
-                print self._render_config('route_add', dict(
+                call(self._render_config('route_add', dict(
                         dev = device.name,
                         net_addr = route.net_addr,
                         prefix = route.prefix,
                         gateway = route.gateway,
                     )
-                )
+                ), shell=True)
 
 
 if __name__ == '__main__':
