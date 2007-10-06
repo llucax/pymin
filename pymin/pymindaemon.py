@@ -49,6 +49,7 @@ class PyminDaemon(eventloop.EventLoop):
         # Create EventLoop
         eventloop.EventLoop.__init__(self, sock)
         # Create Dispatcher
+        #TODO root.pymin = PyminHandler()
         self.dispatcher = dispatcher.Dispatcher(root)
         # Signal handling
         def quit(signum, frame):
@@ -65,7 +66,7 @@ class PyminDaemon(eventloop.EventLoop):
         r"handle() -> None :: Handle incoming events using the dispatcher."
         (msg, addr) = self.file.recvfrom(65535)
         try:
-            result = self.dispatcher.dispatch(msg)
+            result = self.dispatcher.dispatch(unicode(msg, 'utf-8'))
             if result is not None:
                 result = serializer.serialize(result)
             response = u'OK '
@@ -81,7 +82,7 @@ class PyminDaemon(eventloop.EventLoop):
             response += u'0\n'
         else:
             response += u'%d\n%s' % (len(result), result)
-        self.file.sendto(response, addr)
+        self.file.sendto(response.encode('utf-8'), addr)
 
     def run(self):
         r"run() -> None :: Run the event loop (shortcut to loop())"

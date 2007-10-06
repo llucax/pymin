@@ -21,53 +21,47 @@ class Error(HandlerError):
 
     message - A descriptive error message.
     """
-
-    def __init__(self, message):
-        r"Initialize the Error object. See class documentation for more info."
-        self.message = message
-
-    def __str__(self):
-        return self.message
+    pass
 
 class DeviceError(Error):
 
     def __init__(self, device):
-        self.message = 'Device error : "%s"' % device
+        self.message = u'Device error : "%s"' % device
 
 class DeviceNotFoundError(DeviceError):
 
     def __init__(self, device):
-        self.message = 'Device not found : "%s"' % device
+        self.message = u'Device not found : "%s"' % device
 
 class AddressError(Error):
 
     def __init__(self, addr):
-        self.message = 'Address error : "%s"' % addr
+        self.message = u'Address error : "%s"' % addr
 
 class AddressNotFoundError(AddressError):
 
     def __init__(self, address):
-        self.message = 'Address not found : "%s"' % address
+        self.message = u'Address not found : "%s"' % address
 
 class AddressAlreadyExistsError(AddressError):
 
     def __init__(self, address):
-        self.message = 'Address already exists : "%s"' % address
+        self.message = u'Address already exists : "%s"' % address
 
 class RouteError(Error):
 
     def __init__(self, route):
-        self.message = 'Route error : "%s"' % route
+        self.message = u'Route error : "%s"' % route
 
 class RouteNotFoundError(RouteError):
 
     def __init__(self, route):
-        self.message = 'Route not found : "%s"' % route
+        self.message = u'Route not found : "%s"' % route
 
 class RouteAlreadyExistsError(RouteError):
 
     def __init__(self, route):
-        self.message = 'Route already exists : "%s"' % route
+        self.message = u'Route already exists : "%s"' % route
 
 
 class Route(Sequence):
@@ -88,6 +82,8 @@ class Route(Sequence):
         return cmp(id(self), id(other))
 
 class RouteHandler(Handler):
+
+    handler_help = u"Manage IP routes"
 
     def __init__(self, devices):
         self.devices = devices
@@ -149,6 +145,8 @@ class Address(Sequence):
 
 class AddressHandler(Handler):
 
+    handler_help = u"Manage IP addresses"
+
     def __init__(self, devices):
         self.devices = devices
 
@@ -204,6 +202,8 @@ class Device(Sequence):
 
 class DeviceHandler(Handler):
 
+    handler_help = u"Manage network devices"
+
     def __init__(self, devices):
         # FIXME remove templates to execute commands
         from mako.template import Template
@@ -250,6 +250,8 @@ def get_devices():
     return d
 
 class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
+
+    handler_help = u"Manage IP devices, addresses and routes"
 
     _persistent_attrs = 'devices'
 

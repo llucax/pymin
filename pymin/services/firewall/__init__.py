@@ -22,13 +22,7 @@ class Error(HandlerError):
 
     message - A descriptive error message.
     """
-
-    def __init__(self, message):
-        r"Initialize the Error object. See class documentation for more info."
-        self.message = message
-
-    def __str__(self):
-        return self.message
+    pass
 
 class RuleError(Error, KeyError):
     r"""
@@ -39,7 +33,7 @@ class RuleError(Error, KeyError):
 
     def __init__(self, rule):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Rule error: "%s"' % rule
+        self.message = u'Rule error: "%s"' % rule
 
 class RuleAlreadyExistsError(RuleError):
     r"""
@@ -50,7 +44,7 @@ class RuleAlreadyExistsError(RuleError):
 
     def __init__(self, rule):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Rule already exists: "%s"' % rule
+        self.message = u'Rule already exists: "%s"' % rule
 
 class RuleNotFoundError(RuleError):
     r"""
@@ -62,7 +56,7 @@ class RuleNotFoundError(RuleError):
 
     def __init__(self, rule):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Rule not found: "%s"' % rule
+        self.message = u'Rule not found: "%s"' % rule
 
 
 class Rule(Sequence):
@@ -129,11 +123,13 @@ class RuleHandler(Handler):
     rules - A list of Rule objects.
     """
 
+    handler_help = u"Manage firewall rules"
+
     def __init__(self, rules):
         r"Initialize the object, see class documentation for details."
         self.rules = rules
 
-    @handler(u'Add a new rule.')
+    @handler(u'Add a new rule')
     def add(self, *args, **kwargs):
         r"add(rule) -> None :: Add a rule to the rules list (see Rule doc)."
         rule = Rule(*args, **kwargs)
@@ -141,7 +137,7 @@ class RuleHandler(Handler):
             raise RuleAlreadyExistsError(rule)
         self.rules.append(rule)
 
-    @handler(u'Update a rule.')
+    @handler(u'Update a rule')
     def update(self, index, *args, **kwargs):
         r"update(index, rule) -> None :: Update a rule (see Rule doc)."
         # TODO check if the modified rule is the same of an existing one
@@ -151,7 +147,7 @@ class RuleHandler(Handler):
         except IndexError:
             raise RuleNotFoundError(index)
 
-    @handler(u'Delete a rule.')
+    @handler(u'Delete a rule')
     def delete(self, index):
         r"delete(index) -> Rule :: Delete a rule from the list returning it."
         index = int(index) # TODO validation
@@ -160,7 +156,7 @@ class RuleHandler(Handler):
         except IndexError:
             raise RuleNotFoundError(index)
 
-    @handler(u'Get information about a rule.')
+    @handler(u'Get information about a rule')
     def get(self, index):
         r"get(rule) -> Rule :: Get all the information about a rule."
         index = int(index) # TODO validation
@@ -169,7 +165,7 @@ class RuleHandler(Handler):
         except IndexError:
             raise RuleNotFoundError(index)
 
-    @handler(u'Get information about all rules.')
+    @handler(u'Get information about all rules')
     def show(self):
         r"show() -> list of Rules :: List all the complete rules information."
         return self.rules
@@ -187,6 +183,8 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
 
     Both defaults to the current working directory.
     """
+
+    handler_help = u"Manage firewall service"
 
     _persistent_attrs = 'rules'
 

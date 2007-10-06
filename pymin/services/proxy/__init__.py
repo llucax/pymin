@@ -19,13 +19,7 @@ class Error(HandlerError):
 
     message - A descriptive error message.
     """
-
-    def __init__(self, message):
-        r"Initialize the Error object. See class documentation for more info."
-        self.message = message
-
-    def __str__(self):
-        return self.message
+    pass
 
 class HostError(Error, KeyError):
     r"""
@@ -36,7 +30,7 @@ class HostError(Error, KeyError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host error: "%s"' % hostname
+        self.message = u'Host error: "%s"' % hostname
 
 class HostAlreadyExistsError(HostError):
     r"""
@@ -47,7 +41,7 @@ class HostAlreadyExistsError(HostError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host already exists: "%s"' % hostname
+        self.message = u'Host already exists: "%s"' % hostname
 
 class HostNotFoundError(HostError):
     r"""
@@ -59,7 +53,7 @@ class HostNotFoundError(HostError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host not found: "%s"' % hostname
+        self.message = u'Host not found: "%s"' % hostname
 
 
 class Host(Sequence):
@@ -71,6 +65,8 @@ class Host(Sequence):
         return (self.ip)
 
 class HostHandler(Handler):
+
+    handler_help = u"Manage proxy hosts"
 
     def __init__(self, hosts):
         self.hosts = hosts
@@ -98,6 +94,8 @@ class HostHandler(Handler):
 
 class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
                    TransactionalHandler, ParametersHandler):
+
+    handler_help = u"Manage proxy service"
 
     _initd_name = 'squid'
 
