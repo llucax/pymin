@@ -26,13 +26,7 @@ class Error(HandlerError):
 
     message - A descriptive error message.
     """
-
-    def __init__(self, message):
-        r"Initialize the object. See class documentation for more info."
-        self.message = message
-
-    def __str__(self):
-        return self.message
+    pass
 
 class ReturnNot0Error(Error):
     r"""
@@ -47,7 +41,7 @@ class ReturnNot0Error(Error):
         r"Initialize the object. See class documentation for more info."
         self.return_value = return_value
 
-    def __str__(self):
+    def __unicode__(self):
         return 'The command returned %d' % self.return_value
 
 class ExecutionError(Error):
@@ -66,7 +60,7 @@ class ExecutionError(Error):
         self.command = command
         self.error = error
 
-    def __str__(self):
+    def __unicode__(self):
         command = self.command
         if not isinstance(self.command, basestring):
             command = ' '.join(command)
