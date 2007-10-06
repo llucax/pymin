@@ -112,7 +112,7 @@ class Rule(Sequence):
     def as_tuple(self):
         r"Return a tuple representing the rule."
         return (self.chain, self.target, self.src, self.dst, self.protocol,
-                    self.src_port)
+                    self.src_port, self.dst_port)
 
 class RuleHandler(Handler):
     r"""RuleHandler(rules) -> RuleHandler instance :: Handle a list of rules.
@@ -197,8 +197,8 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
         r"Initialize the object, see class documentation for details."
         self._persistent_dir = pickle_dir
         self._config_writer_cfg_dir = config_dir
-        self._service_start = path.join(self._config_writer_cfg_dir,
-                                                    self._config_writer_files)
+        self._service_start = ('sh', path.join(self._config_writer_cfg_dir,
+                                        self._config_writer_files))
         self._service_stop = ('iptables', '-t', 'filter', '-F')
         self._service_restart = self._service_start
         self._service_reload = self._service_start
