@@ -13,8 +13,10 @@ def optional(switch, value):
 
 %>
 
+/usr/sbin/iptables -t filter -F
+
 % for (index, rule) in enumerate(rules):
-/sbin/iptables -t filter \
+/usr/sbin/iptables -t filter \
     -I ${rule.chain|s} ${index+1|s} \
     -j ${rule.target|s} \
     ${optional('-s', rule.src)} \
