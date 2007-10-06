@@ -19,13 +19,7 @@ class Error(HandlerError):
 
     message - A descriptive error message.
     """
-
-    def __init__(self, message):
-        r"Initialize the Error object. See class documentation for more info."
-        self.message = message
-
-    def __str__(self):
-        return self.message
+    pass
 
 class HostError(Error, KeyError):
     r"""
@@ -36,7 +30,7 @@ class HostError(Error, KeyError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host error: "%s"' % hostname
+        self.message = u'Host error: "%s"' % hostname
 
 class HostAlreadyExistsError(HostError):
     r"""
@@ -47,7 +41,7 @@ class HostAlreadyExistsError(HostError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host already exists: "%s"' % hostname
+        self.message = u'Host already exists: "%s"' % hostname
 
 class HostNotFoundError(HostError):
     r"""
@@ -59,7 +53,7 @@ class HostNotFoundError(HostError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host not found: "%s"' % hostname
+        self.message = u'Host not found: "%s"' % hostname
 
 
 class Host(Sequence):
@@ -89,18 +83,20 @@ class HostHandler(Handler):
     hosts - A dictionary with string keys (hostnames) and Host instances values.
     """
 
+    handler_help = u"Manage DHCP hosts"
+
     def __init__(self, hosts):
         r"Initialize HostHandler object, see class documentation for details."
         self.hosts = hosts
 
-    @handler(u'Add a new host.')
+    @handler(u'Add a new host')
     def add(self, name, ip, mac):
         r"add(name, ip, mac) -> None :: Add a host to the hosts list."
         if name in self.hosts:
             raise HostAlreadyExistsError(name)
         self.hosts[name] = Host(name, ip, mac)
 
-    @handler(u'Update a host.')
+    @handler(u'Update a host')
     def update(self, name, ip=None, mac=None):
         r"update(name[, ip[, mac]]) -> None :: Update a host of the hosts list."
         if not name in self.hosts:
@@ -110,26 +106,26 @@ class HostHandler(Handler):
         if mac is not None:
             self.hosts[name].mac = mac
 
-    @handler(u'Delete a host.')
+    @handler(u'Delete a host')
     def delete(self, name):
         r"delete(name) -> None :: Delete a host of the hosts list."
         if not name in self.hosts:
             raise HostNotFoundError(name)
         del self.hosts[name]
 
-    @handler(u'Get information about a host.')
+    @handler(u'Get information about a host')
     def get(self, name):
         r"get(name) -> Host :: List all the information of a host."
         if not name in self.hosts:
             raise HostNotFoundError(name)
         return self.hosts[name]
 
-    @handler(u'List hosts.')
+    @handler(u'List hosts')
     def list(self):
         r"list() -> tuple :: List all the hostnames."
         return self.hosts.keys()
 
-    @handler(u'Get information about all hosts.')
+    @handler(u'Get information about all hosts')
     def show(self):
         r"show() -> list of Hosts :: List all the complete hosts information."
         return self.hosts.values()
@@ -147,6 +143,8 @@ class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     Both defaults to the current working directory.
     """
+
+    handler_help = u"Manage DHCP service"
 
     _initd_name = 'dhcpd'
 

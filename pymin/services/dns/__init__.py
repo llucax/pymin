@@ -29,13 +29,7 @@ class Error(HandlerError):
 
     message - A descriptive error message.
     """
-
-    def __init__(self, message):
-        r"Initialize the Error object. See class documentation for more info."
-        self.message = message
-
-    def __str__(self):
-        return self.message
+    pass
 
 class ZoneError(Error, KeyError):
     r"""
@@ -46,7 +40,7 @@ class ZoneError(Error, KeyError):
 
     def __init__(self, zonename):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Zone error: "%s"' % zonename
+        self.message = u'Zone error: "%s"' % zonename
 
 class ZoneNotFoundError(ZoneError):
     r"""
@@ -58,7 +52,7 @@ class ZoneNotFoundError(ZoneError):
 
     def __init__(self, zonename):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'zone not found: "%s"' % zonename
+        self.message = u'zone not found: "%s"' % zonename
 
 class ZoneAlreadyExistsError(ZoneError):
     r"""
@@ -69,7 +63,7 @@ class ZoneAlreadyExistsError(ZoneError):
 
     def __init__(self, zonename):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Zone already exists: "%s"' % zonename
+        self.message = u'Zone already exists: "%s"' % zonename
 
 class HostError(Error, KeyError):
     r"""
@@ -80,7 +74,7 @@ class HostError(Error, KeyError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host error: "%s"' % hostname
+        self.message = u'Host error: "%s"' % hostname
 
 class HostAlreadyExistsError(HostError):
     r"""
@@ -91,11 +85,11 @@ class HostAlreadyExistsError(HostError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host already exists: "%s"' % hostname
+        self.message = u'Host already exists: "%s"' % hostname
 
 class HostNotFoundError(HostError):
     r"""
-    HostNotFoundError(hostname) -> HostNotFoundError instance
+    HostNotFoundError(hostname) -> HostNotFoundError instance.
 
     This exception is raised when trying to operate on a hostname that doesn't
     exists.
@@ -103,36 +97,36 @@ class HostNotFoundError(HostError):
 
     def __init__(self, hostname):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Host not found: "%s"' % hostname
+        self.message = u'Host not found: "%s"' % hostname
 
 class MailExchangeError(Error, KeyError):
     r"""
-    MailExchangeError(hostname) -> MailExchangeError instance
+    MailExchangeError(hostname) -> MailExchangeError instance.
 
     This is the base exception for all mail exchange related errors.
     """
 
     def __init__(self, mx):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Mail Exchange error: "%s"' % mx
+        self.message = u'Mail Exchange error: "%s"' % mx
 
 class MailExchangeAlreadyExistsError(MailExchangeError):
     r"""
-    MailExchangeAlreadyExistsError(hostname) -> MailExchangeAlreadyExistsError instance
+    MailExchangeAlreadyExistsError(hostname) -> MailExchangeAlreadyExistsError.
 
     This exception is raised when trying to add a mail exchange that already exists.
     """
 
     def __init__(self, mx):
         r"Initialize the object. See class documentation for more info."
-        self.message = 'Mail Exchange already exists: "%s"' % mx
+        self.message = u'Mail Exchange already exists: "%s"' % mx
 
 class MailExchangeNotFoundError(MailExchangeError):
     r"""
-    MailExchangeNotFoundError(hostname) -> MailExchangeNotFoundError instance
+    MailExchangeNotFoundError(hostname) -> MailExchangeNotFoundError instance.
 
-    This exception is raised when trying to operate on a mail exchange that doesn't
-    exists.
+    This exception is raised when trying to operate on a mail exchange that
+    doesn't exists.
     """
 
     def __init__(self, mx):
@@ -152,9 +146,10 @@ class NameServerError(Error, KeyError):
 
 class NameServerAlreadyExistsError(NameServerError):
     r"""
-    NameServerAlreadyExistsError(hostname) -> NameServerAlreadyExistsError instance
+    NameServerAlreadyExistsError(hostname) -> NameServerAlreadyExistsError.
 
-    This exception is raised when trying to add a name server that already exists.
+    This exception is raised when trying to add a name server that already
+    exists.
     """
 
     def __init__(self, ns):
@@ -163,10 +158,10 @@ class NameServerAlreadyExistsError(NameServerError):
 
 class NameServerNotFoundError(NameServerError):
     r"""
-    NameServerNotFoundError(hostname) -> NameServerNotFoundError instance
+    NameServerNotFoundError(hostname) -> NameServerNotFoundError instance.
 
-    This exception is raised when trying to operate on a name server that doesn't
-    exists.
+    This exception is raised when trying to operate on a name server that
+    doesn't exists.
     """
 
     def __init__(self, ns):
@@ -183,6 +178,9 @@ class Host(Sequence):
         return (self.name, self.ip)
 
 class HostHandler(Handler):
+
+    handler_help = u"Manage DNS hosts"
+
     def __init__(self,zones):
         self.zones = zones
 
@@ -233,6 +231,8 @@ class MailExchange(Sequence):
 
 class MailExchangeHandler(Handler):
 
+    handler_help = u"Manage DNS mail exchangers (MX)"
+
     def __init__(self, zones):
         self.zones = zones
 
@@ -282,6 +282,8 @@ class NameServer(Sequence):
 
 class NameServerHandler(Handler):
 
+    handler_help = u"Manage DNS name servers (NS)"
+
     def __init__(self, zones):
         self.zones = zones
 
@@ -326,7 +328,6 @@ class Zone(Sequence):
         return (self.name, self.hosts, self.mxs, self.nss)
 
 class ZoneHandler(Handler):
-
     r"""ZoneHandler(zones) -> ZoneHandler instance :: Handle a list of zones.
 
     This class is a helper for DnsHandler to do all the work related to zone
@@ -334,6 +335,9 @@ class ZoneHandler(Handler):
 
     zones - A dictionary with string keys (zone name) and Zone instances values.
     """
+
+    handler_help = u"Manage DNS zones"
+
     def __init__(self, zones):
         self.zones = zones
 
@@ -377,6 +381,8 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     Both defaults to the current working directory.
     """
+
+    handler_help = u"Manage DNS service"
 
     _initd_name = 'bind'
 

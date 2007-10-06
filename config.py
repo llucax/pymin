@@ -1,36 +1,30 @@
 # vim: set et sts=4 sw=4 encoding=utf-8 :
 
 from pymin.services import *
-from pymin.dispatcher import handler
+from pymin.dispatcher import Handler
+from os.path import join
 
-# XXX for testing only
-@handler
-def test_func(*args):
-    print 'func:', args
+base_path = join('var', 'lib', 'pymin')
+pickle_path = join(base_path, 'pickle')
+# FIXME, this should be specific for each service
+config_path = join(base_path, 'config')
 
-routes = dict \
-(
+class Root(Handler):
     dhcp = DhcpHandler(
-        pickle_dir = 'var/lib/pymin/pickle/dhcp',
-        config_dir = 'var/lib/pymin/config/dhcp',
-    ),
+        pickle_dir = join(pickle_path, 'dhcp'),
+        config_dir = join(config_path, 'dhcp'))
     dns = DnsHandler(
-        pickle_dir = 'var/lib/pymin/pickle/dns',
-        config_dir = 'var/lib/pymin/config/dns',
-    ),
+        pickle_dir = join(pickle_path, 'dns'),
+        config_dir = join(config_path, 'dns'))
     firewall = FirewallHandler(
-        pickle_dir = 'var/lib/pymin/pickle/firewall',
-        config_dir = 'var/lib/pymin/config/firewall',
-    ),
+        pickle_dir = join(pickle_path, 'firewall'),
+        config_dir = join(config_path, 'firewall'))
     ip = IpHandler(
-        pickle_dir = 'var/lib/pymin/pickle/ip',
-        config_dir = 'var/lib/pymin/config/ip',
-    ),
+        pickle_dir = join(pickle_path, 'ip'),
+        config_dir = join(config_path, 'ip'))
     proxy = ProxyHandler(
-        pickle_dir = 'var/lib/pymin/pickle/proxy',
-        config_dir = 'var/lib/pymin/config/proxy',
-    ),
-)
+        pickle_dir = join(pickle_path, 'proxy'),
+        config_dir = join(config_path, 'proxy'))
 
 bind_addr = \
 (
