@@ -384,7 +384,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     handler_help = u"Manage DNS service"
 
-    _initd_name = 'bind'
+    _initd_name = 'named'
 
     _persistent_attrs = ('params', 'zones')
 
@@ -408,6 +408,12 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
         self.mod = False
         self._config_build_templates()
         self._restore()
+        # FIXME self.mod = True
+        #if not self._restore():
+        #r = self._restore()
+        #print r
+        #if not r:
+        #    self.mod = True
         self.host = HostHandler(self.zones)
         self.zone = ZoneHandler(self.zones)
         self.mx = MailExchangeHandler(self.zones)
@@ -426,7 +432,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
             if a_zone.mod:
                 if not a_zone.new:
                     # TODO freeze de la zona
-                    call(('dns', 'freeze', a_zone.name))
+                    call(('rndc', 'freeze', a_zone.name))
                 vars = dict(
                     zone = a_zone,
                     hosts = a_zone.hosts.values(),
@@ -438,7 +444,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                 a_zone.mod = False
                 if not a_zone.new:
                     # TODO unfreeze de la zona
-                    call(('dns', 'unfreeze', a_zone.name))
+                    call(('rndc', 'thaw', a_zone.name))
                 else :
                     self.mod = True
                     a_zone.new = False
