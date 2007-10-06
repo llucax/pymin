@@ -98,12 +98,14 @@ class UserHandler(Handler):
 
     def __init__(self, users):
         self.users = users
-
+	
+    @handler('Adds a user')
     def add(self, user, password):
         if user in self.users:
             raise UserAlreadyExistsError(user)
         self.users[user] = crypt.crypt(password,'BA')
-
+    
+    @handler('Deletes a user')
     def delete(self, user):
         if not user in self.users:
             raise UserNotFound(user)
