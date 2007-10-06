@@ -7,6 +7,8 @@ It's based on Zope or Cherrypy dispatching (but implemented from the scratch)
 and translates commands to functions/objects/methods.
 """
 
+import re
+
 __ALL__ = ('Error', 'HandlerError', 'CommandNotFoundError', 'Handler',
             'Dispatcher', 'handler', 'is_handler', 'get_help')
 
@@ -51,6 +53,19 @@ class CommandError(Error):
 
     def __unicode__(self):
         return u'Error in command "%s".' % u' '.join(self.command)
+
+class WrongArgumentsError(CommandError):
+    r"""WrongArgumentsError() -> WrongArgumentsError instance.
+
+    This exception is raised when an empty command string is received.
+    """
+
+    def __init__(self, message):
+        r"Initialize the object, see class documentation for more info."
+        self.message = message
+
+    def __unicode__(self):
+        return self.message
 
 class CommandNotSpecifiedError(CommandError):
     r"""CommandNotSpecifiedError() -> CommandNotSpecifiedError instance.
@@ -358,6 +373,8 @@ def parse_command(command):
             seq.append(buff)
     return (seq, dic)
 
+args_re = re.compile(r'\w+\(\) takes (.+) (\d+) \w+ \((\d+) given\)')
+
 class Dispatcher:
     r"""Dispatcher([root]) -> Dispatcher instance :: Command dispatcher.
 
@@ -419,7 +436,22 @@ class Dispatcher:
                 raise CommandNotFoundError(command)
             handler = getattr(handler, route[0].encode('utf-8'))
             route = route[1:]
-        return handler(*route, **kwargs)
+        try:
+            return handler(*route, **kwargs)
+        except TypeError, e:
+            m = args_re.match(unicode(e))
+            if m:
+                (quant, n_ok, n_bad)  = m.groups()
+                n_ok = int(n_ok)
+                n_bad = int(n_bad)
+                n_ok -= 1
+                n_bad -= 1
+                pl = ''
+                if n_ok > 1:
+                    pl = 's'
+                raise WrongArgumentsError(u'%s takes %s %s argument%s, %s given'
+                            % (handler.__name__, quant, n_ok, pl, n_bad))
+            raise
 
 
 if __name__ == '__main__':
