@@ -11,8 +11,8 @@ except ImportError:
 
 from pymin.dispatcher import Handler, handler, HandlerError
 
-#DEBUG = False
-DEBUG = True
+DEBUG = False
+#DEBUG = True
 
 __ALL__ = ('ServiceHandler', 'InitdHandler', 'Persistent', 'ConfigWriter',
             'Error', 'ReturnNot0Error', 'ExecutionError', 'call')
@@ -221,13 +221,22 @@ class Restorable(Persistent):
         r"_restore() -> bool :: Restore persistent data or create a default."
         try:
             self._load()
+            # TODO tener en cuenta servicios que hay que levantar y los que no
+            if hasattr(self, 'commit'): # TODO deberia ser reload y/o algo para comandos
+                self.commit()
             return True
         except IOError:
             for (k, v) in self._restorable_defaults.items():
                 setattr(self, k, v)
+            # TODO tener en cuenta servicios que hay que levantar y los que no
+            if hasattr(self, 'commit'):
+                self.commit()
+                return False
             self._dump()
             if hasattr(self, '_write_config'):
                 self._write_config()
+            if hasattr(self, 'reload'):
+                self.reload()
             return False
 
 class ConfigWriter:
@@ -467,7 +476,7 @@ class TransactionalHandler(Handler):
             self._dump()
         if hasattr(self, '_write_config'):
             self._write_config()
-        if hasattr(self, '_reload'):
+        if hasattr(self, 'reload'):
             self.reload()
 
     @handler(u'Discard all the uncommited changes.')
