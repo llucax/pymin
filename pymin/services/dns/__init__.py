@@ -181,43 +181,43 @@ class HostHandler(Handler):
 
     handler_help = u"Manage DNS hosts"
 
-    def __init__(self,zones):
-        self.zones = zones
+    def __init__(self, parent):
+        self.parent = parent
 
     @handler(u'Adds a host to a zone')
     def add(self, name, hostname, ip):
-        if not name in self.zones:
+        if not name in self.parent.zones:
             raise ZoneNotFoundError(name)
-        if hostname in self.zones[name].hosts:
+        if hostname in self.parent.zones[name].hosts:
             raise HostAlreadyExistsError(hostname)
-        self.zones[name].hosts[hostname] = Host(hostname, ip)
-        self.zones[name].mod = True
+        self.parent.zones[name].hosts[hostname] = Host(hostname, ip)
+        self.parent.zones[name].mod = True
 
     @handler(u'Updates a host ip in a zone')
     def update(self, name, hostname, ip):
-        if not name in self.zones:
+        if not name in self.parent.zones:
             raise ZoneNotFoundError(name)
-        if not hostname in self.zones[name].hosts:
+        if not hostname in self.parent.zones[name].hosts:
              raise HostNotFoundError(name)
-        self.zones[name].hosts[hostname].ip = ip
-        self.zones[name].mod = True
+        self.parent.zones[name].hosts[hostname].ip = ip
+        self.parent.zones[name].mod = True
 
     @handler(u'Deletes a host from a zone')
     def delete(self, name, hostname):
-        if not name in self.zones:
+        if not name in self.parent.zones:
             raise ZoneNotFoundError(name)
-        if not hostname in self.zones[name].hosts:
+        if not hostname in self.parent.zones[name].hosts:
              raise HostNotFoundError(name)
-        del self.zones[name].hosts[hostname]
-        self.zones[name].mod = True
+        del self.parent.zones[name].hosts[hostname]
+        self.parent.zones[name].mod = True
 
     @handler(u'Lists hosts')
     def list(self):
-        return self.zones.keys()
+        return self.parent.zones.keys()
 
     @handler(u'Get insormation about all hosts')
     def show(self):
-        return self.zones.values()
+        return self.parent.zones.values()
 
 
 class MailExchange(Sequence):
@@ -233,43 +233,43 @@ class MailExchangeHandler(Handler):
 
     handler_help = u"Manage DNS mail exchangers (MX)"
 
-    def __init__(self, zones):
-        self.zones = zones
+    def __init__(self, parent):
+        self.parent = parent
 
     @handler(u'Adds a mail exchange to a zone')
     def add(self, zonename, mx, prio):
-        if not zonename in self.zones:
+        if not zonename in self.parent.zones:
             raise ZoneNotFoundError(zonename)
-        if mx in self.zones[zonename].mxs:
+        if mx in self.parent.zones[zonename].mxs:
             raise MailExchangeAlreadyExistsError(mx)
-        self.zones[zonename].mxs[mx] = MailExchange(mx, prio)
-        self.zones[zonename].mod = True
+        self.parent.zones[zonename].mxs[mx] = MailExchange(mx, prio)
+        self.parent.zones[zonename].mod = True
 
     @handler(u'Updates a mail exchange priority')
     def update(self, zonename, mx, prio):
-        if not zonename in self.zones:
+        if not zonename in self.parent.zones:
             raise ZoneNotFoundError(zonename)
-        if not mx in self.zones[zonename].mxs:
+        if not mx in self.parent.zones[zonename].mxs:
             raise MailExchangeNotFoundError(mx)
-        self.zones[zonename].mxs[mx].prio = prio
-        self.zones[zonename].mod = True
+        self.parent.zones[zonename].mxs[mx].prio = prio
+        self.parent.zones[zonename].mod = True
 
     @handler(u'Deletes a mail exchange from a zone')
     def delete(self, zonename, mx):
-        if not zonename in self.zones:
+        if not zonename in self.parent.zones:
             raise ZoneNotFoundError(zonename)
-        if not mx in self.zones[zonename].mxs:
+        if not mx in self.parent.zones[zonename].mxs:
             raise MailExchangeNotFoundError(mx)
-        del self.zones[zonename].mxs[mx]
-        self.zones[zonename].mod = True
+        del self.parent.zones[zonename].mxs[mx]
+        self.parent.zones[zonename].mod = True
 
     @handler(u'Lists mail exchangers')
     def list(self):
-        return self.zones.keys()
+        return self.parent.zones.keys()
 
     @handler(u'Get information about all mail exchangers')
     def show(self):
-        return self.zones.values()
+        return self.parent.zones.values()
 
 
 class NameServer(Sequence):
@@ -284,34 +284,34 @@ class NameServerHandler(Handler):
 
     handler_help = u"Manage DNS name servers (NS)"
 
-    def __init__(self, zones):
-        self.zones = zones
+    def __init__(self, parent):
+        self.parent = parent
 
     @handler(u'Adds a name server to a zone')
     def add(self, zone, ns):
-        if not zone in self.zones:
+        if not zone in self.parent.zones:
             raise ZoneNotFoundError(zone)
-        if ns in self.zones[zone].nss:
+        if ns in self.parent.zones[zone].nss:
             raise NameServerAlreadyExistsError(ns)
-        self.zones[zone].nss[ns] = NameServer(ns)
-        self.zones[zone].mod = True
+        self.parent.zones[zone].nss[ns] = NameServer(ns)
+        self.parent.zones[zone].mod = True
 
     @handler(u'Deletes a name server from a zone')
     def delete(self, zone, ns):
-        if not zone in self.zones:
+        if not zone in self.parent.zones:
             raise ZoneNotFoundError(zone)
-        if not ns in self.zones[zone].nss:
+        if not ns in self.parent.zones[zone].nss:
             raise NameServerNotFoundError(ns)
-        del self.zones[zone].nss[ns]
-        self.zones[zone].mod = True
+        del self.parent.zones[zone].nss[ns]
+        self.parent.zones[zone].mod = True
 
     @handler(u'Lists name servers')
     def list(self):
-        return self.zones.keys()
+        return self.parent.zones.keys()
 
     @handler(u'Get information about all name servers')
     def show(self):
-        return self.zones.values()
+        return self.parent.zones.values()
 
 
 class Zone(Sequence):
@@ -328,45 +328,45 @@ class Zone(Sequence):
         return (self.name, self.hosts, self.mxs, self.nss)
 
 class ZoneHandler(Handler):
-    r"""ZoneHandler(zones) -> ZoneHandler instance :: Handle a list of zones.
+    r"""ZoneHandler(parent.zones) -> ZoneHandler instance :: Handle a list of zones.
 
     This class is a helper for DnsHandler to do all the work related to zone
     administration.
 
-    zones - A dictionary with string keys (zone name) and Zone instances values.
+    parent - The parent service handler.
     """
 
     handler_help = u"Manage DNS zones"
 
-    def __init__(self, zones):
-        self.zones = zones
+    def __init__(self, parent):
+        self.parent = parent
 
     @handler(u'Adds a zone')
     def add(self, name):
-        if name in self.zones:
-            if self.zones[name].dele == True:
-                self.zones[name].dele = False
+        if name in self.parent.zones:
+            if self.parent.zones[name].dele == True:
+                self.parent.zones[name].dele = False
             else:
                 raise ZoneAlreadyExistsError(name)
-        self.zones[name] = Zone(name)
-        self.zones[name].mod = True
-        self.zones[name].new = True
+        self.parent.zones[name] = Zone(name)
+        self.parent.zones[name].mod = True
+        self.parent.zones[name].new = True
 
 
     @handler(u'Deletes a zone')
     def delete(self, name):
         r"delete(name) -> None :: Delete a zone from the zone list."
-        if not name in self.zones:
+        if not name in self.parent.zones:
             raise ZoneNotFoundError(name)
-        self.zones[name].dele = True
+        self.parent.zones[name].dele = True
 
     @handler(u'Lists zones')
     def list(self):
-        return self.zones.keys()
+        return self.parent.zones.keys()
 
     @handler(u'Get information about all zones')
     def show(self):
-        return self.zones.values()
+        return self.parent.zones.values()
 
 
 class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
@@ -414,10 +414,10 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
         #print r
         #if not r:
         #    self.mod = True
-        self.host = HostHandler(self.zones)
-        self.zone = ZoneHandler(self.zones)
-        self.mx = MailExchangeHandler(self.zones)
-        self.ns = NameServerHandler(self.zones)
+        self.host = HostHandler(self)
+        self.zone = ZoneHandler(self)
+        self.mx = MailExchangeHandler(self)
+        self.ns = NameServerHandler(self)
 
     def _zone_filename(self, zone):
         return zone.name + '.zone'

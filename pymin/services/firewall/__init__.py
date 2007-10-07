@@ -120,22 +120,22 @@ class RuleHandler(Handler):
     This class is a helper for FirewallHandler to do all the work related to rules
     administration.
 
-    rules - A list of Rule objects.
+    parent - The parent service handler.
     """
 
     handler_help = u"Manage firewall rules"
 
-    def __init__(self, rules):
+    def __init__(self, parent):
         r"Initialize the object, see class documentation for details."
-        self.rules = rules
+        self.parent = parent
 
     @handler(u'Add a new rule')
     def add(self, *args, **kwargs):
         r"add(rule) -> None :: Add a rule to the rules list (see Rule doc)."
         rule = Rule(*args, **kwargs)
-        if rule in self.rules:
+        if rule in self.parent.rules:
             raise RuleAlreadyExistsError(rule)
-        self.rules.append(rule)
+        self.parent.rules.append(rule)
 
     @handler(u'Update a rule')
     def update(self, index, *args, **kwargs):
@@ -143,7 +143,7 @@ class RuleHandler(Handler):
         # TODO check if the modified rule is the same of an existing one
         index = int(index) # TODO validation
         try:
-            self.rules[index].update(*args, **kwargs)
+            self.parent.rules[index].update(*args, **kwargs)
         except IndexError:
             raise RuleNotFoundError(index)
 
@@ -152,7 +152,7 @@ class RuleHandler(Handler):
         r"delete(index) -> Rule :: Delete a rule from the list returning it."
         index = int(index) # TODO validation
         try:
-            return self.rules.pop(index)
+            return self.parent.rules.pop(index)
         except IndexError:
             raise RuleNotFoundError(index)
 
@@ -161,14 +161,14 @@ class RuleHandler(Handler):
         r"get(rule) -> Rule :: Get all the information about a rule."
         index = int(index) # TODO validation
         try:
-            return self.rules[index]
+            return self.parent.rules[index]
         except IndexError:
             raise RuleNotFoundError(index)
 
     @handler(u'Get information about all rules')
     def show(self):
         r"show() -> list of Rules :: List all the complete rules information."
-        return self.rules
+        return self.parent.rules
 
 
 class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
@@ -204,7 +204,7 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
         self._service_reload = self._service_start
         self._config_build_templates()
         self._restore()
-        self.rule = RuleHandler(self.rules)
+        self.rule = RuleHandler(self)
 
     def _get_config_vars(self, config_file):
         return dict(rules=self.rules)

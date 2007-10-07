@@ -70,46 +70,46 @@ class HostHandler(Handler):
 
     handler_help = u"Manage proxy hosts"
 
-    def __init__(self, hosts):
-        self.hosts = hosts
+    def __init__(self, parent):
+        self.parent = parent
 
     @handler(u'Adds a host')
     def add(self, ip):
-        if ip in self.hosts:
+        if ip in self.parent.hosts:
             raise HostAlreadyExistsError(ip)
-        self.hosts[ip] = Host(ip)
+        self.parent.hosts[ip] = Host(ip)
 
     @handler(u'Deletes a host')
     def delete(self, ip):
-        if not ip in self.hosts:
+        if not ip in self.parent.hosts:
             raise HostNotFoundError(ip)
-        del self.hosts[ip]
+        del self.parent.hosts[ip]
 
     @handler(u'Shows all hosts')
     def list(self):
-        return self.hosts.keys()
+        return self.parent.hosts.keys()
 
     @handler(u'Get information about all hosts')
     def show(self):
-        return self.hosts.items()
+        return self.parent.hosts.items()
 
 
 class UserHandler(Handler):
 
-    def __init__(self, users):
-        self.users = users
+    def __init__(self, parent):
+        self.parent = parent
 	
     @handler('Adds a user')
     def add(self, user, password):
-        if user in self.users:
+        if user in self.parent.users:
             raise UserAlreadyExistsError(user)
-        self.users[user] = crypt.crypt(password,'BA')
+        self.parent.users[user] = crypt.crypt(password,'BA')
     
     @handler('Deletes a user')
     def delete(self, user):
-        if not user in self.users:
+        if not user in self.parent.users:
             raise UserNotFound(user)
-        del self.users[user]
+        del self.parent.users[user]
 
 class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
                    TransactionalHandler, ParametersHandler):
@@ -138,8 +138,8 @@ class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
         self._restore()
-        self.host = HostHandler(self.hosts)
-        self.user = UserHandler(self.users)
+        self.host = HostHandler(self)
+        self.user = UserHandler(self)
 
     def _get_config_vars(self, config_file):
         if config_file == 'squid.conf':

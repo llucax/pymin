@@ -85,50 +85,50 @@ class HostHandler(Handler):
 
     handler_help = u"Manage DHCP hosts"
 
-    def __init__(self, hosts):
+    def __init__(self, parent):
         r"Initialize HostHandler object, see class documentation for details."
-        self.hosts = hosts
+        self.parent = parent
 
     @handler(u'Add a new host')
     def add(self, name, ip, mac):
         r"add(name, ip, mac) -> None :: Add a host to the hosts list."
-        if name in self.hosts:
+        if name in self.parent.hosts:
             raise HostAlreadyExistsError(name)
-        self.hosts[name] = Host(name, ip, mac)
+        self.parent.hosts[name] = Host(name, ip, mac)
 
     @handler(u'Update a host')
     def update(self, name, ip=None, mac=None):
         r"update(name[, ip[, mac]]) -> None :: Update a host of the hosts list."
-        if not name in self.hosts:
+        if not name in self.parent.hosts:
             raise HostNotFoundError(name)
         if ip is not None:
-            self.hosts[name].ip = ip
+            self.parent.hosts[name].ip = ip
         if mac is not None:
-            self.hosts[name].mac = mac
+            self.parent.hosts[name].mac = mac
 
     @handler(u'Delete a host')
     def delete(self, name):
         r"delete(name) -> None :: Delete a host of the hosts list."
-        if not name in self.hosts:
+        if not name in self.parent.hosts:
             raise HostNotFoundError(name)
-        del self.hosts[name]
+        del self.parent.hosts[name]
 
     @handler(u'Get information about a host')
     def get(self, name):
         r"get(name) -> Host :: List all the information of a host."
-        if not name in self.hosts:
+        if not name in self.parent.hosts:
             raise HostNotFoundError(name)
-        return self.hosts[name]
+        return self.parent.hosts[name]
 
     @handler(u'List hosts')
     def list(self):
         r"list() -> tuple :: List all the hostnames."
-        return self.hosts.keys()
+        return self.parent.hosts.keys()
 
     @handler(u'Get information about all hosts')
     def show(self):
         r"show() -> list of Hosts :: List all the complete hosts information."
-        return self.hosts.values()
+        return self.parent.hosts.values()
 
 
 class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
@@ -173,7 +173,7 @@ class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
         self._restore()
-        self.host = HostHandler(self.hosts)
+        self.host = HostHandler(self)
 
     def _get_config_vars(self, config_file):
         return dict(hosts=self.hosts.values(), **self.params)
