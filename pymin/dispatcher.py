@@ -238,6 +238,8 @@ def parse_command(command):
     arguments is preserved and if there are multiple keyword arguments with
     the same key, the last value is the winner (all other values are lost).
 
+    The command should be a unicode string.
+
     Examples:
 
     >>> parse_command('hello world')
@@ -265,6 +267,12 @@ def parse_command(command):
     ([u'=hello'], {})
     >>> parse_command(r'\thello')
     ([u'\thello'], {})
+    >>> parse_command(r'hello \n')
+    ([u'hello', u'\n'], {})
+    >>> parse_command(r'hello \nmundo')
+    ([u'hello', u'\nmundo'], {})
+    >>> parse_command(r'test \N')
+    ([u'test', None], {})
     >>> parse_command(r'\N')
     ([None], {})
     >>> parse_command(r'none=\N')
@@ -289,9 +297,23 @@ def parse_command(command):
     escape = False
     keyword = None
     state = SEP
+    def register_token(buff, keyword, seq, dic):
+        if buff == r'\N':
+            buff = None
+        if keyword is not None:
+            dic[keyword.encode('utf-8')] = buff
+            keyword = None
+        else:
+            seq.append(buff)
+        buff = u''
+        return (buff, keyword)
     for n, c in enumerate(command):
         # Escaped character
         if escape:
+            # Not yet registered the token
+            if state == SEP and buff:
+                (buff, keyword) = register_token(buff, keyword, seq, dic)
+                state = TOKEN
             for e in escaped_chars:
                 if c == e:
                     buff += eval(u'"\\' + e + u'"')
@@ -316,14 +338,7 @@ def parse_command(command):
                     keyword = buff
                     buff = u''
                     continue
-                if buff == r'\N':
-                    buff = None
-                if keyword is not None: # Value found
-                    dic[str(keyword)] = buff
-                    keyword = None
-                else: # Normal parameter found
-                    seq.append(buff)
-                buff = u''
+                (buff, keyword) = register_token(buff, keyword, seq, dic)
             state = TOKEN
         # Getting a token
         if state == TOKEN:
@@ -365,12 +380,7 @@ def parse_command(command):
         raise ParseError(command,
                         u'keyword argument (%s) without value' % keyword)
     if buff:
-        if buff == r'\N':
-            buff = None
-        if keyword is not None:
-            dic[str(keyword)] = buff
-        else:
-            seq.append(buff)
+        register_token(buff, keyword, seq, dic)
     return (seq, dic)
 
 args_re = re.compile(r'\w+\(\) takes (.+) (\d+) \w+ \((\d+) given\)')
@@ -533,6 +543,12 @@ if __name__ == '__main__':
     assert p == ([u'=hello'], {}), p
     p = parse_command(r'\thello')
     assert p == ([u'\thello'], {}), p
+    p = parse_command(r'hello \n')
+    assert p == ([u'hello', u'\n'], {}), p
+    p = parse_command(r'hello \nmundo')
+    assert p == ([u'hello', u'\nmundo'], {}), p
+    p = parse_command(r'test \N')
+    assert p == ([u'test', None], {}), p
     p = parse_command(r'\N')
     assert p == ([None], {}), p
     p = parse_command(r'none=\N')
