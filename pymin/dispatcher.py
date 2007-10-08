@@ -459,7 +459,8 @@ class Dispatcher:
                 pl = ''
                 if n_ok > 1:
                     pl = 's'
-                raise WrongArgumentsError(u'%s takes %s %s argument%s, %s given'
+                raise WrongArgumentsError(
+                        u'Command "%s" takes %s %s argument%s, %s given.'
                             % (handler.__name__, quant, n_ok, pl, n_bad))
             raise
 
