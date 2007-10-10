@@ -384,6 +384,7 @@ def parse_command(command):
     return (seq, dic)
 
 args_re = re.compile(r'\w+\(\) takes (.+) (\d+) \w+ \((\d+) given\)')
+kw_re = re.compile(r'\w+\(\) got an unexpected keyword argument (.+)')
 
 class Dispatcher:
     r"""Dispatcher([root]) -> Dispatcher instance :: Command dispatcher.
@@ -462,6 +463,12 @@ class Dispatcher:
                 raise WrongArgumentsError(
                         u'Command "%s" takes %s %s argument%s, %s given.'
                             % (handler.__name__, quant, n_ok, pl, n_bad))
+            m = kw_re.match(unicode(e))
+            if m:
+                (kw,)  = m.groups()
+                raise WrongArgumentsError(
+                        u'Command "%s" got an unexpected keyword argument %s.'
+                            % (handler.__name__, kw))
             raise
 
 
