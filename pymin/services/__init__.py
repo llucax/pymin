@@ -5,4 +5,5 @@ from pymin.services.dns import DnsHandler
 from pymin.services.firewall import FirewallHandler
 from pymin.services.ip import IpHandler
 from pymin.services.proxy import ProxyHandler
+from pymin.services.vrrp import VrrpHandler
 

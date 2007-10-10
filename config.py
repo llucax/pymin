@@ -25,6 +25,9 @@ class Root(Handler):
     proxy = ProxyHandler(
         pickle_dir = join(pickle_path, 'proxy'),
         config_dir = join(config_path, 'proxy'))
+    vrrp = VrrpHandler(
+        pickle_dir = join(pickle_path, 'vrrp'),
+        config_dir = join(config_path, 'vrrp'))
 
 bind_addr = \
 (
