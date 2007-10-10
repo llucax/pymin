@@ -577,6 +577,88 @@ class SubHandler(Handler):
         r"Initialize the object, see the class documentation for details."
         self.parent = parent
 
+class ListSubHandler(SubHandler):
+    r"""ListSubHandler(parent) -> ListSubHandler instance.
+
+    This is a helper class to inherit from to automatically handle subcommands
+    that operates over a list parent attribute.
+
+    The list attribute to handle and the class of objects that it contains can
+    be defined by calling the constructor or in a more declarative way as
+    class attributes, like:
+
+    class TestHandler(ListSubHandler):
+        _list_subhandler_attr = 'some_list'
+        _list_subhandler_class = SomeClass
+
+    This way, the parent's some_list attribute (self.parent.some_list) will be
+    managed automatically, providing the commands: add, update, delete, get,
+    list and show. New items will be instances of SomeClass, which should
+    provide a cmp operator to see if the item is on the list and an update()
+    method, if it should be possible to modify it.
+    """
+
+    def __init__(self, parent, attr=None, cls=None):
+        r"Initialize the object, see the class documentation for details."
+        self.parent = parent
+        if attr is not None:
+            self._list_subhandler_attr = attr
+        if cls is not None:
+            self._list_subhandler_class = cls
+
+    def _list(self):
+        return getattr(self.parent, self._list_subhandler_attr)
+
+    @handler(u'Add a new item')
+    def add(self, *args, **kwargs):
+        r"add(...) -> None :: Add an item to the list."
+        item = self._list_subhandler_class(*args, **kwargs)
+        if item in self._list():
+            raise ItemAlreadyExistsError(item)
+        self._list().append(item)
+
+    @handler(u'Update an item')
+    def update(self, index, *args, **kwargs):
+        r"update(index, ...) -> None :: Update an item of the list."
+        # TODO make it right with metaclasses, so the method is not created
+        # unless the update() method really exists.
+        # TODO check if the modified item is the same of an existing one
+        index = int(index) # TODO validation
+        if not hasattr(self._list_subhandler_class, 'update'):
+            raise CommandNotFoundError(('update',))
+        try:
+            self._list()[index].update(*args, **kwargs)
+        except IndexError:
+            raise ItemNotFoundError(index)
+
+    @handler(u'Delete an item')
+    def delete(self, index):
+        r"delete(index) -> None :: Delete an item of the list."
+        index = int(index) # TODO validation
+        try:
+            return self._list().pop(index)
+        except IndexError:
+            raise ItemNotFoundError(index)
+
+    @handler(u'Get information about an item')
+    def get(self, index):
+        r"get(index) -> Host :: List all the information of an item."
+        index = int(index) # TODO validation
+        try:
+            return self._list()[index]
+        except IndexError:
+            raise ItemNotFoundError(index)
+
+    @handler(u'Get how many items are in the list')
+    def len(self):
+        r"len() -> int :: Get how many items are in the list."
+        return len(self._list())
+
+    @handler(u'Get information about all items')
+    def show(self):
+        r"show() -> list of Hosts :: List all the complete items information."
+        return self._list()
+
 class DictSubHandler(SubHandler):
     r"""DictSubHandler(parent) -> DictSubHandler instance.
 
@@ -593,7 +675,9 @@ class DictSubHandler(SubHandler):
 
     This way, the parent's some_dict attribute (self.parent.some_dict) will be
     managed automatically, providing the commands: add, update, delete, get,
-    list and show.
+    list and show. New items will be instances of SomeClass, which should
+    provide a constructor with at least the key value and an update() method,
+    if it should be possible to modify it.
     """
 
     def __init__(self, parent, attr=None, cls=None):
@@ -649,7 +733,6 @@ class DictSubHandler(SubHandler):
     def show(self):
         r"show() -> list of Hosts :: List all the complete items information."
         return self._dict().values()
-
 
 
 if __name__ == '__main__':
