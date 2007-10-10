@@ -209,7 +209,7 @@ class Handler:
         if not hasattr(self, command.encode('utf-8')):
             raise HelpNotFoundError(command)
         handler = getattr(self, command.encode('utf-8'))
-        if not is_handler(handler) and not hasattr(handler):
+        if not is_handler(handler) and not hasattr(handler, 'handler_help'):
             raise HelpNotFoundError(command)
         return handler.handler_help
 
