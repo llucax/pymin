@@ -11,11 +11,13 @@ except ImportError:
 
 from pymin.dispatcher import Handler, handler, HandlerError
 
-DEBUG = False
-#DEBUG = True
+#DEBUG = False
+DEBUG = True
 
-__ALL__ = ('ServiceHandler', 'InitdHandler', 'Persistent', 'ConfigWriter',
-            'Error', 'ReturnNot0Error', 'ExecutionError', 'call')
+__ALL__ = ('ServiceHandler', 'InitdHandler', 'SubHandler', 'DictSubHandler',
+            'ListSubHandler', 'Persistent', 'ConfigWriter', 'Error',
+            'ReturnNot0Error', 'ExecutionError', 'ItemError',
+            'ItemAlreadyExistsError', 'ItemNotFoundError', 'call')
 
 class Error(HandlerError):
     r"""
@@ -79,7 +81,7 @@ class ParameterError(Error, KeyError):
 
 class ParameterNotFoundError(ParameterError):
     r"""
-    ParameterNotFoundError(hostname) -> ParameterNotFoundError instance
+    ParameterNotFoundError(paramname) -> ParameterNotFoundError instance
 
     This exception is raised when trying to operate on a parameter that doesn't
     exists.
@@ -88,6 +90,40 @@ class ParameterNotFoundError(ParameterError):
     def __init__(self, paramname):
         r"Initialize the object. See class documentation for more info."
         self.message = 'Parameter not found: "%s"' % paramname
+
+class ItemError(Error, KeyError):
+    r"""
+    ItemError(key) -> ItemError instance.
+
+    This is the base exception for all item related errors.
+    """
+
+    def __init__(self, key):
+        r"Initialize the object. See class documentation for more info."
+        self.message = u'Item error: "%s"' % key
+
+class ItemAlreadyExistsError(ItemError):
+    r"""
+    ItemAlreadyExistsError(key) -> ItemAlreadyExistsError instance.
+
+    This exception is raised when trying to add an item that already exists.
+    """
+
+    def __init__(self, key):
+        r"Initialize the object. See class documentation for more info."
+        self.message = u'Item already exists: "%s"' % key
+
+class ItemNotFoundError(ItemError):
+    r"""
+    ItemNotFoundError(key) -> ItemNotFoundError instance
+
+    This exception is raised when trying to operate on an item that doesn't
+    exists.
+    """
+
+    def __init__(self, key):
+        r"Initialize the object. See class documentation for more info."
+        self.message = u'Item not found: "%s"' % key
 
 
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -526,6 +562,91 @@ class ParametersHandler(Handler):
     def show(self):
         r"show() -> (key, value) tuples :: List all the parameters."
         return self.params.items()
+
+class SubHandler(Handler):
+    r"""SubHandler(parent) -> SubHandler instance :: Handles subcommands.
+
+    This is a helper class to build sub handlers that needs to reference the
+    parent handler.
+
+    parent - Parent Handler object.
+    """
+
+    def __init__(self, parent):
+        r"Initialize the object, see the class documentation for details."
+        self.parent = parent
+
+class DictSubHandler(SubHandler):
+    r"""DictSubHandler(parent) -> DictSubHandler instance.
+
+    This is a helper class to inherit from to automatically handle subcommands
+    that operates over a dict parent attribute.
+
+    The dict attribute to handle and the class of objects that it contains can
+    be defined by calling the constructor or in a more declarative way as
+    class attributes, like:
+
+    class TestHandler(DictSubHandler):
+        _dict_subhandler_attr = 'some_dict'
+        _dict_subhandler_class = SomeClass
+
+    This way, the parent's some_dict attribute (self.parent.some_dict) will be
+    managed automatically, providing the commands: add, update, delete, get,
+    list and show.
+    """
+
+    def __init__(self, parent, attr=None, key=None, cls=None):
+        r"Initialize the object, see the class documentation for details."
+        self.parent = parent
+        if attr is not None:
+            self._dict_subhandler_attr = attr
+        if key is not None:
+            self._dict_subhandler_key = key
+        if cls is not None:
+            self._dict_subhandler_class = cls
+
+    def _dict(self):
+        return getattr(self.parent, self._dict_subhandler_attr)
+
+    @handler(u'Add a new item')
+    def add(self, key, *args, **kwargs):
+        r"add(key, ...) -> None :: Add an item to the dict."
+        item = self._dict_subhandler_class(key, *args, **kwargs)
+        if key in self._dict():
+            raise ItemAlreadyExistsError(key)
+        self._dict()[key] = item
+
+    @handler(u'Update an item')
+    def update(self, key, *args, **kwargs):
+        r"update(key, ...) -> None :: Update an item of the dict."
+        if not key in self._dict():
+            raise ItemNotFoundError(key)
+        self._dict()[key].update(*args, **kwargs)
+
+    @handler(u'Delete an item')
+    def delete(self, key):
+        r"delete(key) -> None :: Delete an item of the dict."
+        if not key in self._dict():
+            raise ItemNotFoundError(key)
+        del self._dict()[key]
+
+    @handler(u'Get information about an item')
+    def get(self, key):
+        r"get(key) -> Host :: List all the information of an item."
+        if not key in self._dict():
+            raise ItemNotFoundError(key)
+        return self._dict()[key]
+
+    @handler(u'List all the items by key')
+    def list(self):
+        r"list() -> tuple :: List all the item keys."
+        return self._dict().keys()
+
+    @handler(u'Get information about all items')
+    def show(self):
+        r"show() -> list of Hosts :: List all the complete items information."
+        return self._dict().values()
+
 
 
 if __name__ == '__main__':
