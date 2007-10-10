@@ -55,17 +55,18 @@ class CommandError(Error):
         return u'Error in command "%s".' % u' '.join(self.command)
 
 class WrongArgumentsError(CommandError):
-    r"""WrongArgumentsError() -> WrongArgumentsError instance.
+    r"""WrongArgumentsError(handler, message) -> WrongArgumentsError instance.
 
     This exception is raised when an empty command string is received.
     """
 
-    def __init__(self, message):
+    def __init__(self, handler, message):
         r"Initialize the object, see class documentation for more info."
+        self.handler = handler
         self.message = message
 
     def __unicode__(self):
-        return self.message
+        return u'Command "%s" %s.' % (self.handler.__name__, self.message)
 
 class CommandNotSpecifiedError(CommandError):
     r"""CommandNotSpecifiedError() -> CommandNotSpecifiedError instance.
@@ -460,15 +461,13 @@ class Dispatcher:
                 pl = ''
                 if n_ok > 1:
                     pl = 's'
-                raise WrongArgumentsError(
-                        u'Command "%s" takes %s %s argument%s, %s given.'
-                            % (handler.__name__, quant, n_ok, pl, n_bad))
+                raise WrongArgumentsError(handler, u'takes %s %s argument%s, '
+                            '%s given' % (quant, n_ok, pl, n_bad))
             m = kw_re.match(unicode(e))
             if m:
                 (kw,)  = m.groups()
-                raise WrongArgumentsError(
-                        u'Command "%s" got an unexpected keyword argument %s.'
-                            % (handler.__name__, kw))
+                raise WrongArgumentsError(handler,
+                        u'got an unexpected keyword argument %s' % kw)
             raise
 
 
