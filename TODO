@@ -1,6 +1,13 @@
 
 Ideas / TODO:
 
+* Agregar soporte de opciones de línea de comando/archivo de conf para:
+  * Dry run.
+  * Seleccionar servicios a usar.
+  * Puerto/bind addr.
+  * Logging.
+  * Paths.
+
 * Agregar logging.
 
 * Agregar validación con formencode.
