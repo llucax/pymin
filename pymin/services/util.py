@@ -596,13 +596,11 @@ class DictSubHandler(SubHandler):
     list and show.
     """
 
-    def __init__(self, parent, attr=None, key=None, cls=None):
+    def __init__(self, parent, attr=None, cls=None):
         r"Initialize the object, see the class documentation for details."
         self.parent = parent
         if attr is not None:
             self._dict_subhandler_attr = attr
-        if key is not None:
-            self._dict_subhandler_key = key
         if cls is not None:
             self._dict_subhandler_class = cls
 
