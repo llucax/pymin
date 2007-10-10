@@ -4,5 +4,5 @@
 from pymin.pymindaemon import PyminDaemon
 import config
 
-PyminDaemon(config.routes, config.bind_addr).run()
+PyminDaemon(config.Root(), config.bind_addr).run()
 

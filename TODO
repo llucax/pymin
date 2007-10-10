@@ -1,19 +1,6 @@
 
 Ideas / TODO:
 
-* Hacer el protocolo completamente introspectivo, de manera que el cliente pueda
-  ser muy simple y genérico y en caso de agregar funcionalidad no sea necesario
-  modificarlo.
-
-* Evaluar hacer un RootHandler en vez de un diccionario con los handlers de la
-  raiz para simplificar la introspección y tener un help/commands global.
-
-* Evaluar que el dispatcher vea si se llama a un HandlerContainer y de ser así
-  que tire una ayuda en vez de un CommandNotFound (por ejemplo si se pone:
-  "dhcp" solo que tire una ayuda). Y si hay un subcomando no encontrado, que
-  tire un Command Not Found in handler (por ej "dhcp lala" -> Command "lala" not
-  found in "dhcp").
-
 * Agregar logging.
 
 * Agregar validación con formencode.

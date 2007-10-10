@@ -6,7 +6,7 @@ from os import path
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler
+                                TransactionalHandler, call
 
 __ALL__ = ('IpHandler', 'Error','DeviceError', 'DeviceNotFoundError',
            'RouteError', 'RouteNotFoundError', 'RouteAlreadyExistsError',
@@ -21,53 +21,47 @@ class Error(HandlerError):
 
     message - A descriptive error message.
     """
-
-    def __init__(self, message):
-        r"Initialize the Error object. See class documentation for more info."
-        self.message = message
-
-    def __str__(self):
-        return self.message
+    pass
 
 class DeviceError(Error):
 
     def __init__(self, device):
-        self.message = 'Device error : "%s"' % device
+        self.message = u'Device error : "%s"' % device
 
 class DeviceNotFoundError(DeviceError):
 
     def __init__(self, device):
-        self.message = 'Device not found : "%s"' % device
+        self.message = u'Device not found : "%s"' % device
 
 class AddressError(Error):
 
     def __init__(self, addr):
-        self.message = 'Address error : "%s"' % addr
+        self.message = u'Address error : "%s"' % addr
 
 class AddressNotFoundError(AddressError):
 
     def __init__(self, address):
-        self.message = 'Address not found : "%s"' % address
+        self.message = u'Address not found : "%s"' % address
 
 class AddressAlreadyExistsError(AddressError):
 
     def __init__(self, address):
-        self.message = 'Address already exists : "%s"' % address
+        self.message = u'Address already exists : "%s"' % address
 
 class RouteError(Error):
 
     def __init__(self, route):
-        self.message = 'Route error : "%s"' % route
+        self.message = u'Route error : "%s"' % route
 
 class RouteNotFoundError(RouteError):
 
     def __init__(self, route):
-        self.message = 'Route not found : "%s"' % route
+        self.message = u'Route not found : "%s"' % route
 
 class RouteAlreadyExistsError(RouteError):
 
     def __init__(self, route):
-        self.message = 'Route already exists : "%s"' % route
+        self.message = u'Route already exists : "%s"' % route
 
 
 class Route(Sequence):
@@ -89,41 +83,43 @@ class Route(Sequence):
 
 class RouteHandler(Handler):
 
-    def __init__(self, devices):
-        self.devices = devices
+    handler_help = u"Manage IP routes"
+
+    def __init__(self, parent):
+        self.parent = parent
 
     @handler(u'Adds a route to a device')
     def add(self, device, net_addr, prefix, gateway):
-        if not device in self.devices:
+        if not device in self.parent.devices:
             raise DeviceNotFoundError(device)
         r = Route(net_addr, prefix, gateway)
         try:
-            self.devices[device].routes.index(r)
+            self.parent.devices[device].routes.index(r)
             raise RouteAlreadyExistsError(net_addr + '/' + prefix + '->' + gateway)
         except ValueError:
-            self.devices[device].routes.append(r)
+            self.parent.devices[device].routes.append(r)
 
     @handler(u'Deletes a route from a device')
     def delete(self, device, net_addr, prefix, gateway):
-        if not device in self.devices:
+        if not device in self.parent.devices:
             raise DeviceNotFoundError(device)
         r = Route(net_addr, prefix, gateway)
         try:
-            self.devices[device].routes.remove(r)
+            self.parent.devices[device].routes.remove(r)
         except ValueError:
             raise RouteNotFoundError(net_addr + '/' + prefix + '->' + gateway)
 
     @handler(u'Flushes routes from a device')
     def flush(self, device):
-        if not device in self.devices:
+        if not device in self.parent.devices:
             raise DeviceNotFoundError(device)
-        self.devices[device].routes = list()
+        self.parent.devices[device].routes = list()
 
 
     @handler(u'List routes')
     def list(self, device):
         try:
-            k = self.devices[device].routes.keys()
+            k = self.parent.devices[device].routes.keys()
         except ValueError:
             k = list()
         return k
@@ -131,7 +127,7 @@ class RouteHandler(Handler):
     @handler(u'Get information about all routes')
     def show(self):
         try:
-            k = self.devices[device].routes.values()
+            k = self.parent.devices[device].routes.values()
         except ValueError:
             k = list()
         return k
@@ -149,35 +145,37 @@ class Address(Sequence):
 
 class AddressHandler(Handler):
 
-    def __init__(self, devices):
-        self.devices = devices
+    handler_help = u"Manage IP addresses"
+
+    def __init__(self, parent):
+        self.parent = parent
 
     @handler(u'Adds an address to a device')
     def add(self, device, ip, prefix, broadcast='+'):
-        if not device in self.devices:
+        if not device in self.parent.devices:
             raise DeviceNotFoundError(device)
-        if ip in self.devices[device].addrs:
+        if ip in self.parent.devices[device].addrs:
             raise AddressAlreadyExistsError(ip)
-        self.devices[device].addrs[ip] = Address(ip, prefix, broadcast)
+        self.parent.devices[device].addrs[ip] = Address(ip, prefix, broadcast)
 
     @handler(u'Deletes an address from a device')
     def delete(self, device, ip):
-        if not device in self.devices:
+        if not device in self.parent.devices:
             raise DeviceNotFoundError(device)
-        if not ip in self.devices[device].addrs:
+        if not ip in self.parent.devices[device].addrs:
             raise AddressNotFoundError(ip)
-        del self.devices[device].addrs[ip]
+        del self.parent.devices[device].addrs[ip]
 
     @handler(u'Flushes addresses from a device')
     def flush(self, device):
-        if not device in self.devices:
+        if not device in self.parent.devices:
             raise DeviceNotFoundError(device)
-        self.devices[device].addrs = dict()
+        self.parent.devices[device].addrs = dict()
 
     @handler(u'List all addresses from a device')
     def list(self, device):
         try:
-            k = self.devices[device].addrs.keys()
+            k = self.parent.devices[device].addrs.keys()
         except ValueError:
             k = list()
         return k
@@ -185,7 +183,7 @@ class AddressHandler(Handler):
     @handler(u'Get information about addresses from a device')
     def show(self, device):
         try:
-            k = self.devices[device].addrs.values()
+            k = self.parent.devices[device].addrs.values()
         except ValueError:
             k = list()
         return k
@@ -204,10 +202,12 @@ class Device(Sequence):
 
 class DeviceHandler(Handler):
 
-    def __init__(self, devices):
+    handler_help = u"Manage network devices"
+
+    def __init__(self, parent):
         # FIXME remove templates to execute commands
         from mako.template import Template
-        self.devices = devices
+        self.parent = parent
         template_dir = path.join(path.dirname(__file__), 'templates')
         dev_fn = path.join(template_dir, 'device')
         self.device_template = Template(filename=dev_fn)
@@ -215,14 +215,14 @@ class DeviceHandler(Handler):
     @handler(u'Bring the device up')
     def up(self, name):
         if name in self.devices:
-            print self.device_template.render(dev=name, action='up')
+            call(self.device_template.render(dev=name, action='up'), shell=True)
         else:
             raise DeviceNotFoundError(name)
 
     @handler(u'Bring the device down')
     def down(self, name):
         if name in self.devices:
-            print self.device_template.render(dev=name, action='down')
+            call(self.device_template.render(dev=name, action='down'), shell=True)
         else:
             raise DeviceNotFoundError(name)
 
@@ -251,6 +251,8 @@ def get_devices():
 
 class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
+    handler_help = u"Manage IP devices, addresses and routes"
+
     _persistent_attrs = 'devices'
 
     _restorable_defaults = dict(devices=get_devices())
@@ -265,31 +267,31 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
         self._restore()
-        self.addr = AddressHandler(self.devices)
-        self.route = RouteHandler(self.devices)
-        self.dev = DeviceHandler(self.devices)
+        self.addr = AddressHandler(self)
+        self.route = RouteHandler(self)
+        self.dev = DeviceHandler(self)
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            print self._render_config('route_flush', dict(dev=device.name))
-            print self._render_config('ip_flush', dict(dev=device.name))
+            call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+            call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
             for address in device.addrs.values():
-                print self._render_config('ip_add', dict(
+                call(self._render_config('ip_add', dict(
                         dev = device.name,
                         addr = address.ip,
                         prefix = address.prefix,
                         broadcast = address.broadcast,
                     )
-                )
+                ), shell=True)
             for route in device.routes:
-                print self._render_config('route_add', dict(
+                call(self._render_config('route_add', dict(
                         dev = device.name,
                         net_addr = route.net_addr,
                         prefix = route.prefix,
                         gateway = route.gateway,
                     )
-                )
+                ), shell=True)
 
 
 if __name__ == '__main__':

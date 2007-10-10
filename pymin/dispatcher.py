@@ -7,6 +7,8 @@ It's based on Zope or Cherrypy dispatching (but implemented from the scratch)
 and translates commands to functions/objects/methods.
 """
 
+import re
+
 __ALL__ = ('Error', 'HandlerError', 'CommandNotFoundError', 'Handler',
             'Dispatcher', 'handler', 'is_handler', 'get_help')
 
@@ -19,7 +21,16 @@ class Error(RuntimeError):
     command - is the command that raised the exception, expressed as a list of
               paths (or subcommands).
     """
-    pass
+
+    def __init__(self, message):
+        r"Initialize the Error object. See class documentation for more info."
+        self.message = message
+
+    def __unicode__(self):
+        return self.message
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
 
 class HandlerError(Error):
     r"""HandlerError(command) -> HandlerError instance :: Base handlers error.
@@ -37,25 +48,72 @@ class CommandError(Error):
     """
 
     def __init__(self, command):
-        r"""Initialize the object.
-
-        See class documentation for more info.
-        """
+        r"Initialize the object, see class documentation for more info."
         self.command = command
 
-    def __str__(self):
-        return 'Command error: "%s"' % self.command
+    def __unicode__(self):
+        return u'Error in command "%s".' % u' '.join(self.command)
+
+class WrongArgumentsError(CommandError):
+    r"""WrongArgumentsError() -> WrongArgumentsError instance.
+
+    This exception is raised when an empty command string is received.
+    """
+
+    def __init__(self, message):
+        r"Initialize the object, see class documentation for more info."
+        self.message = message
+
+    def __unicode__(self):
+        return self.message
+
+class CommandNotSpecifiedError(CommandError):
+    r"""CommandNotSpecifiedError() -> CommandNotSpecifiedError instance.
+
+    This exception is raised when an empty command string is received.
+    """
+
+    def __init__(self):
+        r"Initialize the object, see class documentation for more info."
+        pass
+
+    def __unicode__(self):
+        return u'Command not specified.'
+
+class CommandIsAHandlerError(CommandError):
+    r"""CommandIsAHandlerError() -> CommandIsAHandlerError instance.
+
+    This exception is raised when a command is a handler containing commands
+    instead of a command itself.
+    """
+
+    def __unicode__(self):
+        command = ' '.join(self.command)
+        return u'"%s" is a handler, not a command (type "%s help" for help).' \
+                    % (command, command)
+
+class CommandNotInHandlerError(CommandError):
+    r"""CommandNotInHandlerError() -> CommandNotInHandlerError instance.
+
+    This exception is raised when a command parent is a hanlder containing
+    commands, but the command itself is not found.
+    """
+
+    def __unicode__(self):
+        return u'Command "%(c)s" not found in handler "%(h)s" ' \
+                u'(type "%(h)s help" for help).' \
+                        % dict(c=u' '.join(self.command[-1:]),
+                                h=u' '.join(self.command[0:-1]))
 
 class CommandNotFoundError(CommandError):
-    r"""CommandNotFoundError(command) -> CommandNotFoundError instance.
+    r"""CommandNotFoundError(command[, handler]) -> CommandNotFoundError object.
 
     This exception is raised when the command received can't be dispatched
     because there is no handlers to process it.
     """
 
-    def __str__(self):
-        return 'Command not found: "%s"' % ' '.join(
-                                                repr(c) for c in self.command)
+    def __unicode__(self):
+        return u'Command "%s" not found.' % u' '.join(self.command)
 
 class ParseError(CommandError):
     r"""ParseError(command[, desc]) -> ParseError instance
@@ -75,8 +133,26 @@ class ParseError(CommandError):
         self.command = command
         self.desc = desc
 
-    def __str__(self):
-        return 'Syntax error, %s: %s' % (self.desc, self.command)
+    def __unicode__(self):
+        return u'Syntax error, %s: %s' % (self.desc, self.command)
+
+class HelpNotFoundError(Error):
+    r"""HelpNotFoundError(command) -> HelpNotFoundError instance.
+
+    This exception is raised when a help command can't find the command
+    asked for help.
+    """
+
+    def __init__(self, command):
+        r"""Initialize the object.
+
+        See class documentation for more info.
+        """
+        self.command = command
+
+    def __unicode__(self):
+        return u"Can't get help for '%s', command not found." % self.command
+
 
 def handler(help):
     r"""handler(help) -> function wrapper :: Mark a callable as a handler.
@@ -88,33 +164,32 @@ def handler(help):
     def wrapper(f):
         if not help:
             raise TypeError("'help' should not be empty")
-        f._dispatcher_help = help
+        f._dispatcher_handler = True
+        f.handler_help = help
         return f
     return wrapper
 
 def is_handler(handler):
     r"is_handler(handler) -> bool :: Tell if a object is a handler."
-    return callable(handler) and hasattr(handler, '_dispatcher_help')
-
-def get_help(handler):
-    r"get_help(handler) -> unicode :: Get a handler's help string."
-    if not is_handler(handler):
-        raise TypeError("'%s' should be a handler" % handler.__name__)
-    return handler._dispatcher_help
+    return callable(handler) and hasattr(handler, '_dispatcher_handler') \
+                and handler._dispatcher_handler
 
 class Handler:
     r"""Handler() -> Handler instance :: Base class for all dispatcher handlers.
 
     All dispatcher handlers should inherit from this class to have some extra
-    commands, like help.
+    commands, like help. You should override the 'handler_help' attribute to a
+    nice help message describing the handler.
     """
 
-    @handler(u'List available commands.')
+    handler_help = u'Undocumented handler'
+
+    @handler(u'List available commands')
     def commands(self):
         r"""commands() -> generator :: List the available commands."""
         return (a for a in dir(self) if is_handler(getattr(self, a)))
 
-    @handler(u'Show available commands with their help.')
+    @handler(u'Show available commands with their help')
     def help(self, command=None):
         r"""help([command]) -> unicode/dict :: Show help on available commands.
 
@@ -123,14 +198,19 @@ class Handler:
         and values are the help strings.
         """
         if command is None:
-            return dict((a, get_help(getattr(self, a)))
-                        for a in dir(self) if is_handler(getattr(self, a)))
-        if not hasattr(self, command):
-            raise CommandNotFoundError(command)
-        handler = getattr(self, command)
-        if not is_handler(handler):
-            raise CommandNotFoundError(command)
-        return get_help(handler)
+            d = dict()
+            for a in dir(self):
+                h = getattr(self, a)
+                if is_handler(h) or isinstance(h, Handler):
+                    d[a] = h.handler_help
+            return d
+        # A command was specified
+        if not hasattr(self, command.encode('utf-8')):
+            raise HelpNotFoundError(command)
+        handler = getattr(self, command.encode('utf-8'))
+        if not is_handler(handler) and not hasattr(handler):
+            raise HelpNotFoundError(command)
+        return handler.handler_help
 
 def parse_command(command):
     r"""parse_command(command) -> (args, kwargs) :: Parse a command.
@@ -157,6 +237,8 @@ def parse_command(command):
     are grouped in the list/dict returned. The order of the positional
     arguments is preserved and if there are multiple keyword arguments with
     the same key, the last value is the winner (all other values are lost).
+
+    The command should be a unicode string.
 
     Examples:
 
@@ -185,6 +267,12 @@ def parse_command(command):
     ([u'=hello'], {})
     >>> parse_command(r'\thello')
     ([u'\thello'], {})
+    >>> parse_command(r'hello \n')
+    ([u'hello', u'\n'], {})
+    >>> parse_command(r'hello \nmundo')
+    ([u'hello', u'\nmundo'], {})
+    >>> parse_command(r'test \N')
+    ([u'test', None], {})
     >>> parse_command(r'\N')
     ([None], {})
     >>> parse_command(r'none=\N')
@@ -209,9 +297,23 @@ def parse_command(command):
     escape = False
     keyword = None
     state = SEP
+    def register_token(buff, keyword, seq, dic):
+        if buff == r'\N':
+            buff = None
+        if keyword is not None:
+            dic[keyword.encode('utf-8')] = buff
+            keyword = None
+        else:
+            seq.append(buff)
+        buff = u''
+        return (buff, keyword)
     for n, c in enumerate(command):
         # Escaped character
         if escape:
+            # Not yet registered the token
+            if state == SEP and buff:
+                (buff, keyword) = register_token(buff, keyword, seq, dic)
+                state = TOKEN
             for e in escaped_chars:
                 if c == e:
                     buff += eval(u'"\\' + e + u'"')
@@ -236,14 +338,7 @@ def parse_command(command):
                     keyword = buff
                     buff = u''
                     continue
-                if buff == r'\N':
-                    buff = None
-                if keyword is not None: # Value found
-                    dic[str(keyword)] = buff
-                    keyword = None
-                else: # Normal parameter found
-                    seq.append(buff)
-                buff = u''
+                (buff, keyword) = register_token(buff, keyword, seq, dic)
             state = TOKEN
         # Getting a token
         if state == TOKEN:
@@ -285,24 +380,19 @@ def parse_command(command):
         raise ParseError(command,
                         u'keyword argument (%s) without value' % keyword)
     if buff:
-        if buff == r'\N':
-            buff = None
-        if keyword is not None:
-            dic[str(keyword)] = buff
-        else:
-            seq.append(buff)
+        register_token(buff, keyword, seq, dic)
     return (seq, dic)
 
+args_re = re.compile(r'\w+\(\) takes (.+) (\d+) \w+ \((\d+) given\)')
+
 class Dispatcher:
-    r"""Dispatcher([routes]) -> Dispatcher instance :: Command dispatcher
+    r"""Dispatcher([root]) -> Dispatcher instance :: Command dispatcher.
 
     This class provides a modular and extensible dispatching mechanism. You
-    can specify root 'routes' (as a dict where the key is the string of the
-    root command and the value is a callable object to handle that command,
-    or a subcommand if the callable is an instance and the command can be
-    sub-routed).
+    specify a root handler (probably as a pymin.dispatcher.Handler subclass),
 
-    The command can have arguments, separated by (any number of) spaces.
+    The command can have arguments, separated by (any number of) spaces and
+    keyword arguments (see parse_command for more details).
 
     The dispatcher tries to route the command as deeply as it can, passing
     the other "path" components as arguments to the callable. To route the
@@ -311,79 +401,95 @@ class Dispatcher:
 
     Example:
     >>> d = Dispatcher(dict(handler=some_handler))
-    >>> d.dispatch('handler attribute method arg1 arg2 "third argument"')
+    >>> d.dispatch('handler attribute method arg1 "arg 2" arg=3')
 
     If 'some_handler' is an object with an 'attribute' that is another
     object which has a method named 'method', then
-    some_handler.attribute.method('arg1', 'arg2') will be called. If
-    some_handler is a function, then some_handler('attribute', 'method',
-    'arg1', 'arg2') will be called. The handler "tree" can be as complex
-    and deep as you want.
+    some_handler.attribute.method('arg1', 'arg 2', arg=3) will be called.
+    If some_handler is a function, then some_handler('attribute', 'method',
+    'arg1', 'arg 2', arg=3) will be called. The handler "tree" can be as
+    complex and deep as you want.
 
-    If some command can't be dispatched (because there is no root handler or
-    there is no matching callable attribute), a CommandNotFoundError is raised.
+    If some command can't be dispatched, a CommandError subclass is raised.
     """
 
-    def __init__(self, routes=dict()):
+    def __init__(self, root):
         r"""Initialize the Dispatcher object.
 
         See Dispatcher class documentation for more info.
         """
-        self.routes = routes
+        self.root = root
 
     def dispatch(self, route):
         r"""dispatch(route) -> None :: Dispatch a command string.
 
         This method searches for a suitable callable object in the routes
-        "tree" and call it, or raises a CommandNotFoundError if the command
+        "tree" and call it, or raises a CommandError subclass if the command
         can't be dispatched.
+
+        route - *unicode* string with the command route.
         """
         command = list()
         (route, kwargs) = parse_command(route)
         if not route:
-            raise CommandNotFoundError(command)
-        command.append(route[0])
-        handler = self.routes.get(route[0], None)
-        if handler is None:
-            raise CommandNotFoundError(command)
-        route = route[1:]
+            raise CommandNotSpecifiedError()
+        handler = self.root
         while not is_handler(handler):
             if len(route) is 0:
+                if isinstance(handler, Handler):
+                    raise CommandIsAHandlerError(command)
                 raise CommandNotFoundError(command)
             command.append(route[0])
-            if not hasattr(handler, route[0]):
+            if not hasattr(handler, route[0].encode('utf-8')):
+                if isinstance(handler, Handler) and len(command) > 1:
+                    raise CommandNotInHandlerError(command)
                 raise CommandNotFoundError(command)
-            handler = getattr(handler, route[0])
+            handler = getattr(handler, route[0].encode('utf-8'))
             route = route[1:]
-        return handler(*route, **kwargs)
+        try:
+            return handler(*route, **kwargs)
+        except TypeError, e:
+            m = args_re.match(unicode(e))
+            if m:
+                (quant, n_ok, n_bad)  = m.groups()
+                n_ok = int(n_ok)
+                n_bad = int(n_bad)
+                n_ok -= 1
+                n_bad -= 1
+                pl = ''
+                if n_ok > 1:
+                    pl = 's'
+                raise WrongArgumentsError(
+                        u'Command "%s" takes %s %s argument%s, %s given.'
+                            % (handler.__name__, quant, n_ok, pl, n_bad))
+            raise
 
 
 if __name__ == '__main__':
 
-    @handler(u"test: Print all the arguments, return nothing.")
+    @handler(u"test: Print all the arguments, return nothing")
     def test_func(*args):
         print 'func:', args
 
     class TestClassSubHandler(Handler):
-        @handler(u"subcmd: Print all the arguments, return nothing.")
+        @handler(u"subcmd: Print all the arguments, return nothing")
         def subcmd(self, *args):
             print 'class.subclass.subcmd:', args
 
     class TestClass(Handler):
-        @handler(u"cmd1: Print all the arguments, return nothing.")
+        @handler(u"cmd1: Print all the arguments, return nothing")
         def cmd1(self, *args):
             print 'class.cmd1:', args
-        @handler(u"cmd2: Print all the arguments, return nothing.")
+        @handler(u"cmd2: Print all the arguments, return nothing")
         def cmd2(self, *args):
             print 'class.cmd2:', args
         subclass = TestClassSubHandler()
 
-    test_class = TestClass()
+    class RootHandler(Handler):
+        func = staticmethod(test_func)
+        inst = TestClass()
 
-    d = Dispatcher(dict(
-            func=test_func,
-            inst=test_class,
-    ))
+    d = Dispatcher(RootHandler())
 
     d.dispatch(r'''func arg1 arg2 arg3 "fourth 'argument' with \", a\ttab and\n\\n"''')
     print 'inst commands:', tuple(d.dispatch('inst commands'))
@@ -394,7 +500,7 @@ if __name__ == '__main__':
     d.dispatch('inst subclass subcmd arg1 arg2 arg3 arg4 arg5')
     try:
         d.dispatch('')
-    except CommandNotFoundError, e:
+    except CommandNotSpecifiedError, e:
         print 'Not found:', e
     try:
         d.dispatch('sucutrule piquete culete')
@@ -402,8 +508,14 @@ if __name__ == '__main__':
         print 'Not found:', e
     try:
         d.dispatch('inst cmd3 arg1 arg2 arg3')
-    except CommandNotFoundError, e:
+    except CommandNotInHandlerError, e:
         print 'Not found:', e
+    try:
+        d.dispatch('inst')
+    except CommandIsAHandlerError, e:
+        print 'Not found:', e
+    print
+    print
 
     # Parser tests
     p = parse_command('hello world')
@@ -432,6 +544,12 @@ if __name__ == '__main__':
     assert p == ([u'=hello'], {}), p
     p = parse_command(r'\thello')
     assert p == ([u'\thello'], {}), p
+    p = parse_command(r'hello \n')
+    assert p == ([u'hello', u'\n'], {}), p
+    p = parse_command(r'hello \nmundo')
+    assert p == ([u'hello', u'\nmundo'], {}), p
+    p = parse_command(r'test \N')
+    assert p == ([u'test', None], {}), p
     p = parse_command(r'\N')
     assert p == ([None], {}), p
     p = parse_command(r'none=\N')

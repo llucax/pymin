@@ -1,0 +1,35 @@
+Configruacion de iptables:
+
+1) Listar las reglas de una tabla
+
+# iptables -t ${table} -L -v
+
+2) Para listar reglas de fitrado
+
+# iptables -t filter -L -v
+
+2.1) Agregar una regla de filtrado
+
+# iptables -t filter -I ${chain} ${pos} -j ${target} [-s ${src_ip}/${src_ip_prefix_length}] [-d ${dest_ip}/${dst_ip_prefix_length}] [-p ${protocol}]
+
+Si el protocolo (opcion -p) es udp o tcp se puede agregar los puertos de origen o destino
+
+# iptables -t filter -I ${chain} ${num} -j ${target} [-s ${src_ip}/${src_ip_prefix_length}] [-d ${dest_ip}/${dst_ip_prefix_length}] [-p ${protocol}] -m ${protocolo} [--sport ${src_port}] [--dport ${dst_port}]
+
+Donde:
+- ${chain} es INPUT, OUTPUT o FORWARD
+- ${pos} es el numero de regla dentro de la tabla
+- ${protocol} es udp, tcp, icmp o all
+- ${target} es DROP, ACCEPT, REJECT
+
+2.1) Eliminar una regla de una tabla
+
+# iptables -t ${table} -D ${chain} ${num}
+
+2.2) Eliminar todas las reglas de una tabla
+
+# iptables -t ${table} -F
+
+2.3) Eliminar todas las reglas dentro de una cadena de una tabla
+
+# iptables -t ${table} -F ${chain}

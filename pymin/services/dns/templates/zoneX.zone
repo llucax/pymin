@@ -15,6 +15,6 @@ $TTL 1W
 % endfor
 
 % for host in hosts:
-${host.name}.	IN	A	${host.ip}
+${host.name}	IN	A	${host.ip}
 % endfor
 
