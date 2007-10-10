@@ -9,7 +9,8 @@ try:
 except ImportError:
     import pickle
 
-from pymin.dispatcher import Handler, handler, HandlerError
+from pymin.dispatcher import Handler, handler, HandlerError, \
+                                CommandNotFoundError
 
 #DEBUG = False
 DEBUG = True
@@ -619,6 +620,10 @@ class DictSubHandler(SubHandler):
     @handler(u'Update an item')
     def update(self, key, *args, **kwargs):
         r"update(key, ...) -> None :: Update an item of the dict."
+        # TODO make it right with metaclasses, so the method is not created
+        # unless the update() method really exists.
+        if not hasattr(self._dict_subhandler_class, 'update'):
+            raise CommandNotFoundError(('update',))
         if not key in self._dict():
             raise ItemNotFoundError(key)
         self._dict()[key].update(*args, **kwargs)
