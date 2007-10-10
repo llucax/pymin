@@ -8,7 +8,8 @@ from new import instancemethod
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, ParametersHandler, call
+                                TransactionalHandler, ParametersHandler, \
+                                SubHandler, call
 
 __ALL__ = ('DnsHandler', 'Error',
             'ZoneError', 'ZoneNotFoundError', 'ZoneAlreadyExistsError',
@@ -177,12 +178,9 @@ class Host(Sequence):
     def as_tuple(self):
         return (self.name, self.ip)
 
-class HostHandler(Handler):
+class HostHandler(SubHandler):
 
     handler_help = u"Manage DNS hosts"
-
-    def __init__(self, parent):
-        self.parent = parent
 
     @handler(u'Adds a host to a zone')
     def add(self, name, hostname, ip):
@@ -229,12 +227,9 @@ class MailExchange(Sequence):
     def as_tuple(self):
         return (self.mx, self.prio)
 
-class MailExchangeHandler(Handler):
+class MailExchangeHandler(SubHandler):
 
     handler_help = u"Manage DNS mail exchangers (MX)"
-
-    def __init__(self, parent):
-        self.parent = parent
 
     @handler(u'Adds a mail exchange to a zone')
     def add(self, zonename, mx, prio):
@@ -280,12 +275,9 @@ class NameServer(Sequence):
     def as_tuple(self):
         return (self.name)
 
-class NameServerHandler(Handler):
+class NameServerHandler(SubHandler):
 
     handler_help = u"Manage DNS name servers (NS)"
-
-    def __init__(self, parent):
-        self.parent = parent
 
     @handler(u'Adds a name server to a zone')
     def add(self, zone, ns):
@@ -327,7 +319,7 @@ class Zone(Sequence):
     def as_tuple(self):
         return (self.name, self.hosts, self.mxs, self.nss)
 
-class ZoneHandler(Handler):
+class ZoneHandler(SubHandler):
     r"""ZoneHandler(parent.zones) -> ZoneHandler instance :: Handle a list of zones.
 
     This class is a helper for DnsHandler to do all the work related to zone
@@ -337,9 +329,6 @@ class ZoneHandler(Handler):
     """
 
     handler_help = u"Manage DNS zones"
-
-    def __init__(self, parent):
-        self.parent = parent
 
     @handler(u'Adds a zone')
     def add(self, name):
@@ -351,7 +340,6 @@ class ZoneHandler(Handler):
         self.parent.zones[name] = Zone(name)
         self.parent.zones[name].mod = True
         self.parent.zones[name].new = True
-
 
     @handler(u'Deletes a zone')
     def delete(self, name):

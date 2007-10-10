@@ -5,10 +5,10 @@ from os import path
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, ParametersHandler
+                                TransactionalHandler, ParametersHandler, \
+                                DictSubHandler
 
-__ALL__ = ('DhcpHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
-            'HostNotFoundError')
+__ALL__ = ('DhcpHandler', 'Error')
 
 class Error(HandlerError):
     r"""
@@ -20,41 +20,6 @@ class Error(HandlerError):
     message - A descriptive error message.
     """
     pass
-
-class HostError(Error, KeyError):
-    r"""
-    HostError(hostname) -> HostError instance
-
-    This is the base exception for all host related errors.
-    """
-
-    def __init__(self, hostname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Host error: "%s"' % hostname
-
-class HostAlreadyExistsError(HostError):
-    r"""
-    HostAlreadyExistsError(hostname) -> HostAlreadyExistsError instance
-
-    This exception is raised when trying to add a hostname that already exists.
-    """
-
-    def __init__(self, hostname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Host already exists: "%s"' % hostname
-
-class HostNotFoundError(HostError):
-    r"""
-    HostNotFoundError(hostname) -> HostNotFoundError instance
-
-    This exception is raised when trying to operate on a hostname that doesn't
-    exists.
-    """
-
-    def __init__(self, hostname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Host not found: "%s"' % hostname
-
 
 class Host(Sequence):
     r"""Host(name, ip, mac) -> Host instance :: Class representing a host.
@@ -74,62 +39,23 @@ class Host(Sequence):
         r"Return a tuple representing the host."
         return (self.name, self.ip, self.mac)
 
-class HostHandler(Handler):
-    r"""HostHandler(hosts) -> HostHandler instance :: Handle a list of hosts.
+    def update(self, ip=None, mac=None):
+        if ip is not None:
+            self.ip = ip
+        if mac is not None:
+            self.mac = mac
+
+class HostHandler(DictSubHandler):
+    r"""HostHandler(parent) -> HostHandler instance :: Handle a list of hosts.
 
     This class is a helper for DhcpHandler to do all the work related to hosts
     administration.
-
-    hosts - A dictionary with string keys (hostnames) and Host instances values.
     """
 
     handler_help = u"Manage DHCP hosts"
 
-    def __init__(self, parent):
-        r"Initialize HostHandler object, see class documentation for details."
-        self.parent = parent
-
-    @handler(u'Add a new host')
-    def add(self, name, ip, mac):
-        r"add(name, ip, mac) -> None :: Add a host to the hosts list."
-        if name in self.parent.hosts:
-            raise HostAlreadyExistsError(name)
-        self.parent.hosts[name] = Host(name, ip, mac)
-
-    @handler(u'Update a host')
-    def update(self, name, ip=None, mac=None):
-        r"update(name[, ip[, mac]]) -> None :: Update a host of the hosts list."
-        if not name in self.parent.hosts:
-            raise HostNotFoundError(name)
-        if ip is not None:
-            self.parent.hosts[name].ip = ip
-        if mac is not None:
-            self.parent.hosts[name].mac = mac
-
-    @handler(u'Delete a host')
-    def delete(self, name):
-        r"delete(name) -> None :: Delete a host of the hosts list."
-        if not name in self.parent.hosts:
-            raise HostNotFoundError(name)
-        del self.parent.hosts[name]
-
-    @handler(u'Get information about a host')
-    def get(self, name):
-        r"get(name) -> Host :: List all the information of a host."
-        if not name in self.parent.hosts:
-            raise HostNotFoundError(name)
-        return self.parent.hosts[name]
-
-    @handler(u'List hosts')
-    def list(self):
-        r"list() -> tuple :: List all the hostnames."
-        return self.parent.hosts.keys()
-
-    @handler(u'Get information about all hosts')
-    def show(self):
-        r"show() -> list of Hosts :: List all the complete hosts information."
-        return self.parent.hosts.values()
-
+    _dict_subhandler_attr = 'hosts'
+    _dict_subhandler_class = Host
 
 class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                   ParametersHandler):

@@ -8,7 +8,7 @@ from os import path
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, ServiceHandler, \
-                                TransactionalHandler
+                                TransactionalHandler, SubHandler
 
 __ALL__ = ('FirewallHandler', 'Error', 'RuleError', 'RuleAlreadyExistsError',
            'RuleNotFoundError')
@@ -114,7 +114,7 @@ class Rule(Sequence):
         return (self.chain, self.target, self.src, self.dst, self.protocol,
                     self.src_port, self.dst_port)
 
-class RuleHandler(Handler):
+class RuleHandler(SubHandler):
     r"""RuleHandler(rules) -> RuleHandler instance :: Handle a list of rules.
 
     This class is a helper for FirewallHandler to do all the work related to rules
@@ -124,10 +124,6 @@ class RuleHandler(Handler):
     """
 
     handler_help = u"Manage firewall rules"
-
-    def __init__(self, parent):
-        r"Initialize the object, see class documentation for details."
-        self.parent = parent
 
     @handler(u'Add a new rule')
     def add(self, *args, **kwargs):

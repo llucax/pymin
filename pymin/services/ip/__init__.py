@@ -6,7 +6,7 @@ from os import path
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, call
+                                TransactionalHandler, SubHandler, call
 
 __ALL__ = ('IpHandler', 'Error','DeviceError', 'DeviceNotFoundError',
            'RouteError', 'RouteNotFoundError', 'RouteAlreadyExistsError',
@@ -81,12 +81,9 @@ class Route(Sequence):
             return 0
         return cmp(id(self), id(other))
 
-class RouteHandler(Handler):
+class RouteHandler(SubHandler):
 
     handler_help = u"Manage IP routes"
-
-    def __init__(self, parent):
-        self.parent = parent
 
     @handler(u'Adds a route to a device')
     def add(self, device, net_addr, prefix, gateway):
@@ -143,12 +140,9 @@ class Address(Sequence):
     def as_tuple(self):
         return (self.ip, self.prefix, self.broadcast)
 
-class AddressHandler(Handler):
+class AddressHandler(SubHandler):
 
     handler_help = u"Manage IP addresses"
-
-    def __init__(self, parent):
-        self.parent = parent
 
     @handler(u'Adds an address to a device')
     def add(self, device, ip, prefix, broadcast='+'):
@@ -200,7 +194,7 @@ class Device(Sequence):
     def as_tuple(self):
         return (self.name, self.mac)
 
-class DeviceHandler(Handler):
+class DeviceHandler(SubHandler):
 
     handler_help = u"Manage network devices"
 
