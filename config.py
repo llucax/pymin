@@ -28,6 +28,9 @@ class Root(Handler):
     vrrp = VrrpHandler(
         pickle_dir = join(pickle_path, 'vrrp'),
         config_dir = join(config_path, 'vrrp'))
+    ppp = PppHandler(
+        pickle_dir = join(pickle_path, 'ppp'),
+        config_dir = join(config_path, 'ppp'))
 
 bind_addr = \
 (

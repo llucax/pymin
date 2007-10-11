@@ -1,0 +1,3 @@
+name ${conn.username}
+file /etc/ppp/options.${conn.name}
+ipparam ${conn.name}
