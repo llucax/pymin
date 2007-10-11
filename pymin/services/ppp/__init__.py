@@ -38,18 +38,36 @@ class ConnectionNotFoundError(ConnectionError):
 
 class Connection(Sequence):
 
-    def __init__(self, name, dev, username=None, password=None):
+    def __init__(self, name, username, password, type, **kw):
         self.name = name
-        self.dev = dev
         self.username = username
         self.password = password
+        self.type = type
+        if type == 'OE':
+            if not 'device' in kw:
+                raise ConnectionError('Bad arguments for type=OE')
+            self.device = kw['device']
+        elif type == 'TUNNEL':
+            if not 'server' in kw:
+                raise ConnectionError('Bad arguments for type=TUNNEL')
+            self.server = kw['server']
+            self.username = self.username.replace('\\','\\\\')
+        elif type == 'PPP':
+            if not 'device' in kw:
+                raise ConnectionError('Bad arguments for type=PPP')
+            self.device = kw['device']
+        else:
+            raise ConnectionError('Bad arguments, unknown or unspecified type')
 
     def as_tuple(self):
-        return (self.name, self.dev, self.username, self.password)
+        if self.type == 'TUNNEL':
+            return (self.name, self.username, self.password, self.type, self.server)
+        elif self.type == 'PPP' or self.type == 'OE':
+            return (self.name, self.username, self.password, self.type, self.device)
 
-    def update(self, dev=None, username=None, password=None):
-        if dev is not None:
-            self.dev = dev
+    def update(self, device=None, username=None, password=None):
+        if device is not None:
+            self.device = device
         if username is not None:
             self.username = username
         if password is not None:
@@ -73,7 +91,7 @@ class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
         conns  = dict(),
     )
 
-    _config_writer_files = ('options.X','pap-secrets','nameX')
+    _config_writer_files = ('options.X','pap-secrets','chap-secrets','nameX')
     _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
 
     def __init__(self, pickle_dir='.', config_dir='.'):
@@ -108,8 +126,21 @@ class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     def _write_config(self):
         r"_write_config() -> None :: Generate all the configuration files."
-        vars = dict(conns=self.conns)
+        #guardo los pass que van el pap-secrets
+        vars_pap = dict()
+        for conn in self.conns.values():
+            if conn.type == 'OE' or conn.type == 'PPP':
+                vars_pap[conn.name] = conn
+        vars = dict(conns=vars_pap)
         self._write_single_config('pap-secrets','pap-secrets',vars)
+        #guardo los pass que van el chap-secrets
+        vars_chap = dict()
+        for conn in self.conns.values():
+            if conn.type == 'TUNNEL' :
+                vars_chap[conn.name] = conn
+        vars = dict(conns=vars_chap)
+        self._write_single_config('chap-secrets','chap-secrets',vars)
+        #guard las conns
         for conn in self.conns.values():
             vars = dict(conn=conn)
             self._write_single_config('nameX',conn.name, vars)
@@ -118,7 +149,9 @@ class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
 
 if __name__ == '__main__':
     p = PppHandler()
-    p.conn.add('test2','tty2','luca','luca')
+    p.conn.add('ppp_c','nico','nico',type='PPP',device='tty0')
+    p.conn.add('pppoe_c','fede','fede',type='OE',device='tty1')
+    p.conn.add('ppptunnel_c','dominio\luca','luca',type='TUNNEL',server='192.168.0.23')
     p.commit()
     print p.conn.list()
     print p.conn.show()

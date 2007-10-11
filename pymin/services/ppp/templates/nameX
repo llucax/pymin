@@ -1,3 +1,12 @@
+% if conn.type != 'TUNNEL':
 name ${conn.username}
 file /etc/ppp/options.${conn.name}
 ipparam ${conn.name}
+% else:
+pty "pptp ${conn.server} --nolaunchpppd"
+name ${conn.username}
+remotename PPTP
+require-mppe-128
+file /etc/ppp/options.${conn.name}
+ipparam ${conn.name}
+% endif
