@@ -81,8 +81,8 @@ class RuleHandler(ListSubHandler):
 
     handler_help = u"Manage firewall rules"
 
-    _list_subhandler_attr = 'rules'
-    _list_subhandler_class = Rule
+    _cont_subhandler_attr = 'rules'
+    _cont_subhandler_class = Rule
 
 class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
                       TransactionalHandler):

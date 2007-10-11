@@ -54,8 +54,8 @@ class HostHandler(DictSubHandler):
 
     handler_help = u"Manage DHCP hosts"
 
-    _dict_subhandler_attr = 'hosts'
-    _dict_subhandler_class = Host
+    _cont_subhandler_attr = 'hosts'
+    _cont_subhandler_class = Host
 
 class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                   ParametersHandler):

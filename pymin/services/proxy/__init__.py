@@ -35,8 +35,8 @@ class HostHandler(DictSubHandler):
 
     handler_help = u"Manage proxy hosts"
 
-    _dict_subhandler_attr = 'hosts'
-    _dict_subhandler_class = Host
+    _cont_subhandler_attr = 'hosts'
+    _cont_subhandler_class = Host
 
 class User(Sequence):
     def __init__(self, name, password):
@@ -52,8 +52,8 @@ class UserHandler(DictSubHandler):
 
     handler_help = u"Manage proxy users"
 
-    _dict_subhandler_attr = 'users'
-    _dict_subhandler_class = User
+    _cont_subhandler_attr = 'users'
+    _cont_subhandler_class = User
 
 class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
                    TransactionalHandler, ParametersHandler):
