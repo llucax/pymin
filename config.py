@@ -15,7 +15,10 @@ class Root(Handler):
         config_dir = join(config_path, 'dhcp'))
     dns = DnsHandler(
         pickle_dir = join(pickle_path, 'dns'),
-        config_dir = join(config_path, 'dns'))
+        config_dir = {
+            'named.conf': join(config_path, 'dns'),
+            'zoneX.zone': join(config_path, 'dns', 'zones'),
+        })
     firewall = FirewallHandler(
         pickle_dir = join(pickle_path, 'firewall'),
         config_dir = join(config_path, 'firewall'))

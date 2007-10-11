@@ -389,7 +389,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
     _config_writer_files = ('named.conf', 'zoneX.zone')
     _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
 
-    def __init__(self, pickle_dir='.', config_dir='.'):
+    def __init__(self, pickle_dir='.', config_dir={'named.conf':'.', 'zoneX.zone':'.'}):
         r"Initialize DnsHandler object, see class documentation for details."
         self._persistent_dir = pickle_dir
         self._config_writer_cfg_dir = config_dir

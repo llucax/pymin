@@ -283,18 +283,24 @@ class ConfigWriter:
 
     class TestHandler(ConfigWriter):
         _config_writer_files = ('base.conf', 'custom.conf')
-        _config_writer_cfg_dir = '/etc/service'
+        _config_writer_cfg_dir = {
+                                    'base.conf': '/etc/service',
+                                    'custom.conf': '/etc/service/conf.d',
+                                 }
         _config_writer_tpl_dir = 'templates'
 
     The generated configuration files directory defaults to '.' and the
     templates directory to 'templates'. _config_writer_files has no default and
     must be specified in either way. It can be string or a tuple if more than
-    one configuration file must be generated.
+    one configuration file must be generated. _config_writer_cfg_dir could be a
+    dict mapping which file should be stored in which directory, or a single
+    string if all the config files should go to the same directory.
 
     The template filename and the generated configuration filename are both the
     same (so if you want to generate some /etc/config, you should have some
     templates/config template). That's why _config_writer_cfg_dir and
-    _config_writer_tpl_dir can't be the same.
+    _config_writer_tpl_dir can't be the same. This is not true for very
+    specific cases where _write_single_config() is used.
 
     When you write your Handler, you should call _config_build_templates() in
     you Handler constructor to build the templates.
@@ -350,6 +356,15 @@ class ConfigWriter:
             vars = vars(template_name)
         return self._config_writer_templates[template_name].render(**vars)
 
+    def _get_config_path(self, template_name, config_filename=None):
+        r"Get a complete configuration path."
+        if not config_filename:
+            config_filename = template_name
+        if isinstance(self._config_writer_cfg_dir, basestring):
+            return path.join(self._config_writer_cfg_dir, config_filename)
+        return path.join(self._config_writer_cfg_dir[template_name],
+                            config_filename)
+
     def _write_single_config(self, template_name, config_filename=None, vars=None):
         r"""_write_single_config(template_name[, config_filename[, vars]]).
 
@@ -362,8 +377,6 @@ class ConfigWriter:
         variables to replace in the templates, if not, it looks for a
         _get_config_vars() method to get it.
         """
-        if not config_filename:
-            config_filename = template_name
         if vars is None:
             if hasattr(self, '_get_config_vars'):
                 vars = self._get_config_vars(template_name)
@@ -371,7 +384,7 @@ class ConfigWriter:
                 vars = dict()
         elif callable(vars):
             vars = vars(template_name)
-        f = file(path.join(self._config_writer_cfg_dir, config_filename), 'w')
+        f = file(self._get_config_path(template_name, config_filename), 'w')
         ctx = Context(f, **vars)
         self._config_writer_templates[template_name].render_context(ctx)
         f.close()
