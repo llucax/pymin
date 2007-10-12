@@ -5,12 +5,12 @@ from os import path
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, ParametersHandler
+                                TransactionalHandler, ParametersHandler, \
+                                DictSubHandler
 
 import crypt
 
-__ALL__ = ('ProxyHandler', 'Error', 'HostError', 'HostAlreadyExistsError',
-            'HostNotFoundError')
+__ALL__ = ('ProxyHandler', 'Error')
 
 class Error(HandlerError):
     r"""
@@ -23,93 +23,37 @@ class Error(HandlerError):
     """
     pass
 
-class HostError(Error, KeyError):
-    r"""
-    HostError(hostname) -> HostError instance
-
-    This is the base exception for all host related errors.
-    """
-
-    def __init__(self, hostname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Host error: "%s"' % hostname
-
-class HostAlreadyExistsError(HostError):
-    r"""
-    HostAlreadyExistsError(hostname) -> HostAlreadyExistsError instance
-
-    This exception is raised when trying to add a hostname that already exists.
-    """
-
-    def __init__(self, hostname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Host already exists: "%s"' % hostname
-
-class HostNotFoundError(HostError):
-    r"""
-    HostNotFoundError(hostname) -> HostNotFoundError instance
-
-    This exception is raised when trying to operate on a hostname that doesn't
-    exists.
-    """
-
-    def __init__(self, hostname):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Host not found: "%s"' % hostname
-
-
 class Host(Sequence):
-
     def __init__(self,ip):
         self.ip = ip
-
     def as_tuple(self):
-        return (self.ip)
+        return (self.ip,)
 
-class HostHandler(Handler):
+# TODO convert to a SetSubHandler
+
+class HostHandler(DictSubHandler):
 
     handler_help = u"Manage proxy hosts"
 
-    def __init__(self, parent):
-        self.parent = parent
+    _cont_subhandler_attr = 'hosts'
+    _cont_subhandler_class = Host
 
-    @handler(u'Adds a host')
-    def add(self, ip):
-        if ip in self.parent.hosts:
-            raise HostAlreadyExistsError(ip)
-        self.parent.hosts[ip] = Host(ip)
+class User(Sequence):
+    def __init__(self, name, password):
+        self.name = name
+        self.password = crypt.crypt(password,'BA')
+    def as_tuple(self):
+        return (self.name, self.password)
+    def update(self, password=None):
+        if password is not None:
+            self.password = crypt.crypt(password,'BA')
 
-    @handler(u'Deletes a host')
-    def delete(self, ip):
-        if not ip in self.parent.hosts:
-            raise HostNotFoundError(ip)
-        del self.parent.hosts[ip]
+class UserHandler(DictSubHandler):
 
-    @handler(u'Shows all hosts')
-    def list(self):
-        return self.parent.hosts.keys()
+    handler_help = u"Manage proxy users"
 
-    @handler(u'Get information about all hosts')
-    def show(self):
-        return self.parent.hosts.items()
-
-
-class UserHandler(Handler):
-
-    def __init__(self, parent):
-        self.parent = parent
-	
-    @handler('Adds a user')
-    def add(self, user, password):
-        if user in self.parent.users:
-            raise UserAlreadyExistsError(user)
-        self.parent.users[user] = crypt.crypt(password,'BA')
-    
-    @handler('Deletes a user')
-    def delete(self, user):
-        if not user in self.parent.users:
-            raise UserNotFound(user)
-        del self.parent.users[user]
+    _cont_subhandler_attr = 'users'
+    _cont_subhandler_class = User
 
 class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
                    TransactionalHandler, ParametersHandler):
