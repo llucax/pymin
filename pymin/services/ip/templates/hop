@@ -1,0 +1,5 @@
+ip route add default \
+% for hop in hops:
+nexthop via ${hop.gateway} dev ${hop.device} weight 1 \
+% endfor
+;

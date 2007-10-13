@@ -63,6 +63,79 @@ class RouteAlreadyExistsError(RouteError):
     def __init__(self, route):
         self.message = u'Route already exists : "%s"' % route
 
+class HopError(Error):
+
+    def __init__(self, hop):
+        self.message = u'Hop error : "%s"' % hop
+
+class HopNotFoundError(HopError):
+
+    def __init__(self, hop):
+        self.message = u'Hop not found : "%s"' % hop
+
+class HopAlreadyExistsError(HopError):
+
+    def __init__(self, hop):
+        self.message = u'Hop already exists : "%s"' % hop
+
+
+class Hop(Sequence):
+
+    def __init__(self, gateway, device):
+        self.gateway = gateway
+        self.device = device
+
+    def as_tuple(self):
+        return (self.gateway, self.device)
+
+    def __cmp__(self, other):
+        if self.gateway == other.gateway \
+                and self.device == other.device:
+            return 0
+        return cmp(id(self), id(other))
+
+class HopHandler(Handler):
+
+    def __init__(self, parent):
+        self.parent = parent
+
+    @handler('Adds a hop : add <gateway> <device>')
+    def add(self, gw, dev):
+        if not dev in self.parent.devices:
+            raise DeviceNotFoundError(device)
+        h = Hop(gw, dev)
+        try:
+            self.parent.hops.index(h)
+            raise HopAlreadyExistsError(gw  + '->' + dev)
+        except ValueError:
+            self.parent.hops.append(h)
+
+    @handler(u'Deletes a hop : delete <gateway> <device>')
+    def delete(self, gw, dev):
+        if not dev in self.parent.devices:
+            raise DeviceNotFoundError(device)
+        h = Hop(gw, dev)
+        try:
+            self.parent.hops.remove(h)
+        except ValueError:
+            raise HopNotFoundError(gw + '->' + dev)
+
+    @handler(u'Lists hops : list <dev>')
+    def list(self, device):
+        try:
+            k = self.parent.hops.keys()
+        except ValueError:
+            k = list()
+        return k
+
+    @handler(u'Get information about all hops: show <dev>')
+    def show(self, device):
+        try:
+            k = self.parent.hops.values()
+        except ValueError:
+            k = list()
+        return k
+
 
 class Route(Sequence):
 
@@ -125,7 +198,7 @@ class RouteHandler(Handler):
         return k
 
     @handler(u'Get information about all routes')
-    def show(self):
+    def show(self, device):
         try:
             k = self.parent.devices[device].routes.values()
         except ValueError:
@@ -214,25 +287,27 @@ class DeviceHandler(Handler):
 
     @handler(u'Bring the device up')
     def up(self, name):
-        if name in self.devices:
-            call(self.device_template.render(dev=name, action='up'), shell=True)
+        if name in self.parent.devices:
+            #call(self.device_template.render(dev=name, action='up'), shell=True)
+            print self.device_template.render(dev=name, action='up')
         else:
             raise DeviceNotFoundError(name)
 
     @handler(u'Bring the device down')
     def down(self, name):
-        if name in self.devices:
-            call(self.device_template.render(dev=name, action='down'), shell=True)
+        if name in self.parent.devices:
+            #call(self.device_template.render(dev=name, action='down'), shell=True)
+            print self.device_template.render(dev=name, action='down')
         else:
             raise DeviceNotFoundError(name)
 
     @handler(u'List all devices')
     def list(self):
-        return self.devices.keys()
+        return self.parent.devices.keys()
 
     @handler(u'Get information about a device')
     def show(self):
-        return self.devices.items()
+        return self.parent.devices.items()
 
 
 def get_devices():
@@ -251,14 +326,21 @@ def get_devices():
 
 class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
-    handler_help = u"Manage IP devices, addresses and routes"
+    handler_help = u"Manage IP devices, addresses, routes and hops"
 
-    _persistent_attrs = 'devices'
+    _persistent_attrs = ('devices','hops')
 
-    _restorable_defaults = dict(devices=get_devices())
+    devs = dict();
+    devs['eth0'] = Device('eth0','00:00:00:00')
+    devs['eth1'] = Device('eth1','00:00:00:00')
+
+    _restorable_defaults = dict(
+                            devices=devs,
+                            hops = list()
+                            )
 
     _config_writer_files = ('device', 'ip_add', 'ip_del', 'ip_flush',
-                            'route_add', 'route_del', 'route_flush')
+                            'route_add', 'route_del', 'route_flush', 'hop')
     _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
 
     def __init__(self, pickle_dir='.', config_dir='.'):
@@ -270,34 +352,63 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         self.addr = AddressHandler(self)
         self.route = RouteHandler(self)
         self.dev = DeviceHandler(self)
+        self.hop = HopHandler(self)
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
-            call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
+            #call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+            print self._render_config('route_flush', dict(dev=device.name))
+            #call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
+            print self._render_config('ip_flush', dict(dev=device.name))
             for address in device.addrs.values():
-                call(self._render_config('ip_add', dict(
+                print self._render_config('ip_add', dict(
                         dev = device.name,
                         addr = address.ip,
                         prefix = address.prefix,
                         broadcast = address.broadcast,
-                    )
-                ), shell=True)
+                    ))
+                #call(self._render_config('ip_add', dict(
+                        #dev = device.name,
+                        #addr = address.ip,
+                        #prefix = address.prefix,
+                        #broadcast = address.broadcast,
+                    #)
+                #), shell=True)
             for route in device.routes:
-                call(self._render_config('route_add', dict(
+                print self._render_config('route_add', dict(
                         dev = device.name,
                         net_addr = route.net_addr,
                         prefix = route.prefix,
                         gateway = route.gateway,
-                    )
-                ), shell=True)
+                    ))
+                #call(self._render_config('route_add', dict(
+                        #dev = device.name,
+                        #net_addr = route.net_addr,
+                        #prefix = route.prefix,
+                        #gateway = route.gateway,
+                    #)
+                #), shell=True)
+
+        if self.hops:
+            print 'ip route del default'
+            #call('ip route del default', shell=True)
+            print self._render_config('hop', dict(
+                        hops = self.hops,
+                    ))
+            #call(self._render_config('hop', dict(
+                        #hops = self.hops,
+                    #)
+                 #), shell=True)
 
 
 if __name__ == '__main__':
 
     ip = IpHandler()
     print '----------------------'
+    ip.hop.add('201.21.32.53','eth0')
+    ip.hop.add('205.65.65.25','eth1')
+    ip.commit()
     ip.dev.up('eth0')
     ip.addr.add('eth0','192.168.0.23','24','192.168.255.255')
     ip.addr.add('eth0','192.168.0.26','24')
@@ -305,11 +416,8 @@ if __name__ == '__main__':
     ip.route.add('eth0','192.168.0.0','24','192.168.0.1')
     ip.route.add('eth0','192.168.0.5','24','192.168.0.1')
     ip.commit()
-    ip.route.flush('eth0')
+    ip.hop.delete('201.21.32.53','eth0')
     ip.commit()
-    ip.addr.delete('eth0','192.168.0.23')
-    ip.commit()
-
 
 
 
