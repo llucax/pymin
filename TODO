@@ -1,6 +1,17 @@
 
 Ideas / TODO:
 
+* Revisar interacción entre firewall y nat que ambos usan iptables. Es probable
+  que al manipular reglas por número de índice se complique todo porque tengo
+  indices separados por tipo de regla, entonces si pongo borrar la 2 tal vez es
+  la 13 en vez de la dos porque hay otras 11 reglas de otros sub-servicios que
+  usan iptables. Tal vez la solución simple es hacer algo como:
+  router firewall add [regla]
+  router nat masq add [masq]
+  router nat forward add [port]
+  router nat snat add [snat]
+  (u organizándolo de otra forma pero que tengan todos un root en común)
+
 * Agregar soporte de opciones de línea de comando/archivo de conf para:
   * Dry run.
   * Seleccionar servicios a usar.

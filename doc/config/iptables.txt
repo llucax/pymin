@@ -22,6 +22,10 @@ Donde:
 - ${protocol} es udp, tcp, icmp o all
 - ${target} es DROP, ACCEPT, REJECT
 
+-----------------------------------------------------------------------------------------------
+En realidad esto que sigue es generico
+-----------------------------------------------------------------------------------------------
+
 2.1) Eliminar una regla de una tabla
 
 # iptables -t ${table} -D ${chain} ${num}
@@ -33,3 +37,27 @@ Donde:
 2.3) Eliminar todas las reglas dentro de una cadena de una tabla
 
 # iptables -t ${table} -F ${chain}
+
+------------------------------------------------------------------------------------------------
+
+3)  Para list reglas de NAT
+
+# XXX Luca: importa el orden? digo, si agrego una regla de fw, y luego una de
+# masq y luego otra de fw, importa si ejecuto fw 1, fw2, masq, en vez de fw1,
+# masq, fw2?
+
+# iptables -t nat -L -v
+
+3.1) Forward de puertos
+
+# iptables -t nat -I PREROUTING ${pos} -i ${dev} -j DNAT --to ${nat_dst_ip}[:${nat_dst_port}] -p <tcp|udp> --dport ${port} [-s ${src_ip}/${src_ip_prefix_length}] [-d ${dest_ip}/${dst_ip_prefix_length}]
+
+3.2) Masquerading/SNAT
+
+3.2.1) snat
+
+# iptables -t nat -I POSTROUTING ${pos} -o ${dev} -j SNAT --to ${nat_src_ip} -s ${src_ip}/${src_ip_prefix_length}
+
+3.2.2) masq
+
+# iptables -t nat -I POSTROUTING ${pos} -o ${dev} -j MASQUERADE -s ${src_ip}/${src_ip_prefix_length}

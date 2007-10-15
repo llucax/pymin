@@ -22,6 +22,7 @@ class Root(Handler):
     firewall = FirewallHandler(
         pickle_dir = join(pickle_path, 'firewall'),
         config_dir = join(config_path, 'firewall'))
+    nat = NatHandler(pickle_dir = join(pickle_path, 'nat'))
     ip = IpHandler(
         pickle_dir = join(pickle_path, 'ip'),
         config_dir = join(config_path, 'ip'))
