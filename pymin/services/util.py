@@ -15,10 +15,10 @@ from pymin.dispatcher import Handler, handler, HandlerError, \
 #DEBUG = False
 DEBUG = True
 
-__ALL__ = ('ServiceHandler', 'InitdHandler', 'SubHandler', 'DictSubHandler',
-            'ListSubHandler', 'Persistent', 'ConfigWriter', 'Error',
-            'ReturnNot0Error', 'ExecutionError', 'ItemError',
-            'ItemAlreadyExistsError', 'ItemNotFoundError', 'call')
+__ALL__ = ('ServiceHandler', 'RestartHandler', 'ReloadHandler', 'InitdHandler',
+            'SubHandler', 'DictSubHandler', 'ListSubHandler', 'Persistent',
+            'ConfigWriter', 'Error', 'ReturnNot0Error', 'ExecutionError',
+            'ItemError', 'ItemAlreadyExistsError', 'ItemNotFoundError', 'call')
 
 class Error(HandlerError):
     r"""
@@ -446,6 +446,32 @@ class ServiceHandler(Handler):
     def reload(self):
         r"reload() -> None :: Reload the configuration of the service."
         call(self._service_reload)
+
+class RestartHandler(Handler):
+    r"""RestartHandler() -> RestartHandler :: Provides generic restart command.
+
+    This is a helper class to inherit from to automatically add a restart
+    command that first stop the service and then starts it again (using start
+    and stop commands respectively).
+    """
+
+    @handler(u'Restart the service (alias to stop + start).')
+    def restart(self):
+        r"restart() -> None :: Restart the service calling stop() and start()."
+        self.stop()
+        self.start()
+
+class ReloadHandler(Handler):
+    r"""ReloadHandler() -> ReloadHandler :: Provides generic reload command.
+
+    This is a helper class to inherit from to automatically add a reload
+    command that calls restart.
+    """
+
+    @handler(u'Reload the service config (alias to restart).')
+    def reload(self):
+        r"reload() -> None :: Reload the configuration of the service."
+        self.restart()
 
 class InitdHandler(Handler):
     r"""InitdHandler([initd_name[, initd_dir]]) -> InitdHandler.
