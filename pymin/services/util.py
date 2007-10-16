@@ -703,7 +703,7 @@ class ContainerSubHandler(SubHandler):
             item.update(*args, **kwargs)
             if hasattr(item, '_update'):
                 item._update = True
-        except IndexError:
+        except LookupError:
             raise ItemNotFoundError(index)
 
     @handler(u'Delete an item')
@@ -718,11 +718,12 @@ class ContainerSubHandler(SubHandler):
             else:
                 del self._attr()[index]
             return item
-        except IndexError:
+        except LookupError:
             raise ItemNotFoundError(index)
 
     @handler(u'Remove all items (use with care).')
     def clear(self):
+        r"clear() -> None :: Delete all items of the container."
         if isinstance(self._attr(), dict):
             self._attr.clear()
         else:
@@ -735,7 +736,7 @@ class ContainerSubHandler(SubHandler):
             index = int(index) # TODO validation
         try:
             return self._vattr()[index]
-        except IndexError:
+        except LookupError:
             raise ItemNotFoundError(index)
 
     @handler(u'Get information about all items')
