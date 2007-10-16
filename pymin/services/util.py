@@ -116,7 +116,7 @@ class ItemAlreadyExistsError(ItemError):
 
 class ItemNotFoundError(ItemError):
     r"""
-    ItemNotFoundError(key) -> ItemNotFoundError instance
+    ItemNotFoundError(key) -> ItemNotFoundError instance.
 
     This exception is raised when trying to operate on an item that doesn't
     exists.
@@ -649,14 +649,16 @@ class ContainerSubHandler(SubHandler):
         if cls is not None:
             self._cont_subhandler_class = cls
 
-    def _cont(self):
-        return getattr(self.parent, self._cont_subhandler_attr)
+    def _attr(self, attr=None):
+        if attr is None:
+            return getattr(self.parent, self._cont_subhandler_attr)
+        setattr(self.parent, self._cont_subhandler_attr, attr)
 
-    def _vcont(self):
-        if isinstance(self._cont(), dict):
-            return dict([(k, i) for (k, i) in self._cont().items()
+    def _vattr(self):
+        if isinstance(self._attr(), dict):
+            return dict([(k, i) for (k, i) in self._attr().items()
                     if not hasattr(i, '_delete') or not i._delete])
-        return [i for i in self._cont()
+        return [i for i in self._attr()
                 if not hasattr(i, '_delete') or not i._delete]
 
     @handler(u'Add a new item')
@@ -666,25 +668,25 @@ class ContainerSubHandler(SubHandler):
         if hasattr(item, '_add'):
             item._add = True
         key = item
-        if isinstance(self._cont(), dict):
+        if isinstance(self._attr(), dict):
             key = item.as_tuple()[0]
         # do we have the same item? then raise an error
-        if key in self._vcont():
+        if key in self._vattr():
             raise ItemAlreadyExistsError(item)
         # do we have the same item, but logically deleted? then update flags
-        if key in self._cont():
+        if key in self._attr():
             index = key
-            if not isinstance(self._cont(), dict):
-                index = self._cont().index(item)
+            if not isinstance(self._attr(), dict):
+                index = self._attr().index(item)
             if hasattr(item, '_add'):
-                self._cont()[index]._add = False
+                self._attr()[index]._add = False
             if hasattr(item, '_delete'):
-                self._cont()[index]._delete = False
+                self._attr()[index]._delete = False
         else: # it's *really* new
-            if isinstance(self._cont(), dict):
-                self._cont()[key] = item
+            if isinstance(self._attr(), dict):
+                self._attr()[key] = item
             else:
-                self._cont().append(item)
+                self._attr().append(item)
 
     @handler(u'Update an item')
     def update(self, index, *args, **kwargs):
@@ -692,12 +694,12 @@ class ContainerSubHandler(SubHandler):
         # TODO make it right with metaclasses, so the method is not created
         # unless the update() method really exists.
         # TODO check if the modified item is the same of an existing one
-        if not isinstance(self._cont(), dict):
+        if not isinstance(self._attr(), dict):
             index = int(index) # TODO validation
         if not hasattr(self._cont_subhandler_class, 'update'):
             raise CommandNotFoundError(('update',))
         try:
-            item = self._vcont()[index]
+            item = self._vattr()[index]
             item.update(*args, **kwargs)
             if hasattr(item, '_update'):
                 item._update = True
@@ -707,14 +709,14 @@ class ContainerSubHandler(SubHandler):
     @handler(u'Delete an item')
     def delete(self, index):
         r"delete(index) -> None :: Delete an item of the container."
-        if not isinstance(self._cont(), dict):
+        if not isinstance(self._attr(), dict):
             index = int(index) # TODO validation
         try:
-            item = self._vcont()[index]
+            item = self._vattr()[index]
             if hasattr(item, '_delete'):
                 item._delete = True
             else:
-                del self._cont()[index]
+                del self._attr()[index]
             return item
         except IndexError:
             raise ItemNotFoundError(index)
@@ -722,19 +724,19 @@ class ContainerSubHandler(SubHandler):
     @handler(u'Get information about an item')
     def get(self, index):
         r"get(index) -> item :: List all the information of an item."
-        if not isinstance(self._cont(), dict):
+        if not isinstance(self._attr(), dict):
             index = int(index) # TODO validation
         try:
-            return self._vcont()[index]
+            return self._vattr()[index]
         except IndexError:
             raise ItemNotFoundError(index)
 
     @handler(u'Get information about all items')
     def show(self):
         r"show() -> list of items :: List all the complete items information."
-        if isinstance(self._cont(), dict):
-            return self._cont().values()
-        return self._vcont()
+        if isinstance(self._attr(), dict):
+            return self._attr().values()
+        return self._vattr()
 
 class ListSubHandler(ContainerSubHandler):
     r"""ListSubHandler(parent) -> ListSubHandler instance.
@@ -763,7 +765,7 @@ class ListSubHandler(ContainerSubHandler):
     @handler(u'Get how many items are in the list')
     def len(self):
         r"len() -> int :: Get how many items are in the list."
-        return len(self._vcont())
+        return len(self._vattr())
 
 class DictSubHandler(ContainerSubHandler):
     r"""DictSubHandler(parent) -> DictSubHandler instance.
@@ -793,7 +795,7 @@ class DictSubHandler(ContainerSubHandler):
     @handler(u'List all the items by key')
     def list(self):
         r"list() -> tuple :: List all the item keys."
-        return self._cont().keys()
+        return self._attr().keys()
 
 
 if __name__ == '__main__':
