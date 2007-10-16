@@ -61,10 +61,6 @@ class Rule(Sequence):
         if src_port is not None: self.src_port = src_port
         if dst_port is not None: self.dst_port = dst_port
 
-    def __cmp__(self, other):
-        r"Compares two Rule objects."
-        return cmp(self.as_tuple(), other.as_tuple())
-
     def as_tuple(self):
         r"Return a tuple representing the rule."
         return (self.chain, self.target, self.src, self.dst, self.protocol,

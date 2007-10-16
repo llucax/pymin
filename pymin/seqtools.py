@@ -48,6 +48,9 @@ class Sequence:
     def __repr__(self):
         return str(self)
 
+    def __cmp__(self, other):
+        return cmp(self.as_tuple(), other.as_tuple())
+
 def as_tuple(obj):
     r"""as_tuple(obj) -> tuple :: Convert objects to tuple.
 

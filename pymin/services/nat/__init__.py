@@ -57,10 +57,6 @@ class PortForward(Sequence):
         if src_net is not None: self.src_net = src_net
         if dst_net is not None: self.dst_net = dst_net
 
-    def __cmp__(self, other):
-        r"Compares two PortForward objects."
-        return cmp(self.as_tuple(), other.as_tuple())
-
     def as_tuple(self):
         r"Return a tuple representing the port forward."
         return (self.dev, self.protocol, self.port, self.dst, self.dst_port,
