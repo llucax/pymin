@@ -10,18 +10,7 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, ServiceHandler, \
                                 TransactionalHandler, ListSubHandler
 
-__ALL__ = ('FirewallHandler', 'Error')
-
-class Error(HandlerError):
-    r"""
-    Error(command) -> Error instance :: Base FirewallHandler exception class.
-
-    All exceptions raised by the FirewallHandler inherits from this one, so you can
-    easily catch any FirewallHandler exception.
-
-    message - A descriptive error message.
-    """
-    pass
+__ALL__ = ('FirewallHandler',)
 
 class Rule(Sequence):
     r"""Rule(chain, target[, src[, dst[, ...]]]) -> Rule instance.

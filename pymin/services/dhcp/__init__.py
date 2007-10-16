@@ -8,18 +8,7 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, ParametersHandler, \
                                 DictSubHandler
 
-__ALL__ = ('DhcpHandler', 'Error')
-
-class Error(HandlerError):
-    r"""
-    Error(message) -> Error instance :: Base DhcpHandler exception class.
-
-    All exceptions raised by the DhcpHandler inherits from this one, so you can
-    easily catch any DhcpHandler exception.
-
-    message - A descriptive error message.
-    """
-    pass
+__ALL__ = ('DhcpHandler',)
 
 class Host(Sequence):
     r"""Host(name, ip, mac) -> Host instance :: Class representing a host.

@@ -7,7 +7,7 @@ from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, TransactionalHandler, ParametersHandler, call
 
-__ALL__ = ('VrrpHandler')
+__ALL__ = ('VrrpHandler',)
 
 pid_filename = 'vrrp.pid'
 

@@ -8,18 +8,7 @@ from pymin.services.util import Restorable, ConfigWriter, RestartHandler, \
                                 ReloadHandler, TransactionalHandler, \
                                 ListSubHandler, call
 
-__ALL__ = ('NatHandler', 'Error')
-
-class Error(HandlerError):
-    r"""
-    Error(command) -> Error instance :: Base NatHandler exception class.
-
-    All exceptions raised by the NatHandler inherits from this one, so you can
-    easily catch any NatHandler exception.
-
-    message - A descriptive error message.
-    """
-    pass
+__ALL__ = ('NatHandler',)
 
 class PortForward(Sequence):
     r"""PortForward(dev, protocol, port, dst[, dst_port[, ...]]) -> PortForward.

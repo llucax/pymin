@@ -10,18 +10,7 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
 
 import crypt
 
-__ALL__ = ('ProxyHandler', 'Error')
-
-class Error(HandlerError):
-    r"""
-    Error(command) -> Error instance :: Base DnsHandler exception class.
-
-    All exceptions raised by the DnsHandler inherits from this one, so you can
-    easily catch any DnsHandler exception.
-
-    message - A descriptive error message.
-    """
-    pass
+__ALL__ = ('ProxyHandler',)
 
 class Host(Sequence):
     def __init__(self,ip):
