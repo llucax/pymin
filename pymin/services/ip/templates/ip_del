@@ -1,1 +1,1 @@
-ip addr del dev ${dev} ${addr}/${prefix}
+ip addr del dev ${dev} ${addr}/${netmask}

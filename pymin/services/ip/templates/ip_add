@@ -1,1 +1,1 @@
-ip addr add dev ${dev} ${addr}/${prefix} broadcast ${broadcast}
+ip addr add dev ${dev} ${addr}/${netmask} broadcast ${broadcast}
