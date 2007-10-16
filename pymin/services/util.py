@@ -721,6 +721,13 @@ class ContainerSubHandler(SubHandler):
         except IndexError:
             raise ItemNotFoundError(index)
 
+    @handler(u'Remove all items (use with care).')
+    def clear(self):
+        if isinstance(self._attr(), dict):
+            self._attr.clear()
+        else:
+            self._attr(list())
+
     @handler(u'Get information about an item')
     def get(self, index):
         r"get(index) -> item :: List all the information of an item."
