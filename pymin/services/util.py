@@ -9,15 +9,19 @@ try:
 except ImportError:
     import pickle
 
-from pymin.dispatcher import Handler, handler, HandlerError
+from pymin.dispatcher import Handler, handler, HandlerError, \
+                                CommandNotFoundError
 
 #DEBUG = False
 DEBUG = True
 
-__ALL__ = ('ServiceHandler', 'InitdHandler', 'SubHandler', 'DictSubHandler',
-            'ListSubHandler', 'Persistent', 'ConfigWriter', 'Error',
-            'ReturnNot0Error', 'ExecutionError', 'ItemError',
-            'ItemAlreadyExistsError', 'ItemNotFoundError', 'call')
+__ALL__ = ('Error', 'ReturnNot0Error', 'ExecutionError', 'ItemError',
+            'ItemAlreadyExistsError', 'ItemNotFoundError', 'ContainerError',
+            'ContainerNotFoundError', 'call', 'get_network_devices',
+            'Persistent', 'Restorable', 'ConfigWriter', 'ServiceHandler',
+            'RestartHandler', 'ReloadHandler', 'InitdHandler', 'SubHandler',
+            'DictSubHandler', 'ListSubHandler', 'ComposedSubHandler',
+            'ListComposedSubHandler', 'DictComposedSubHandler')
 
 class Error(HandlerError):
     r"""
@@ -115,7 +119,7 @@ class ItemAlreadyExistsError(ItemError):
 
 class ItemNotFoundError(ItemError):
     r"""
-    ItemNotFoundError(key) -> ItemNotFoundError instance
+    ItemNotFoundError(key) -> ItemNotFoundError instance.
 
     This exception is raised when trying to operate on an item that doesn't
     exists.
@@ -125,6 +129,44 @@ class ItemNotFoundError(ItemError):
         r"Initialize the object. See class documentation for more info."
         self.message = u'Item not found: "%s"' % key
 
+class ContainerError(Error, KeyError):
+    r"""
+    ContainerError(key) -> ContainerError instance.
+
+    This is the base exception for all container related errors.
+    """
+
+    def __init__(self, key):
+        r"Initialize the object. See class documentation for more info."
+        self.message = u'Container error: "%s"' % key
+
+class ContainerNotFoundError(ContainerError):
+    r"""
+    ContainerNotFoundError(key) -> ContainerNotFoundError instance.
+
+    This exception is raised when trying to operate on an container that
+    doesn't exists.
+    """
+
+    def __init__(self, key):
+        r"Initialize the object. See class documentation for more info."
+        self.message = u'Container not found: "%s"' % key
+
+
+def get_network_devices():
+    p = subprocess.Popen(('ip', 'link', 'list'), stdout=subprocess.PIPE,
+                                                    close_fds=True)
+    string = p.stdout.read()
+    p.wait()
+    d = dict()
+    i = string.find('eth')
+    while i != -1:
+        eth = string[i:i+4]
+        m = string.find('link/ether', i+4)
+        mac = string[ m+11 : m+11+17]
+        d[eth] = mac
+        i = string.find('eth', m+11+17)
+    return d
 
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, close_fds=True, universal_newlines=True,
@@ -282,18 +324,24 @@ class ConfigWriter:
 
     class TestHandler(ConfigWriter):
         _config_writer_files = ('base.conf', 'custom.conf')
-        _config_writer_cfg_dir = '/etc/service'
+        _config_writer_cfg_dir = {
+                                    'base.conf': '/etc/service',
+                                    'custom.conf': '/etc/service/conf.d',
+                                 }
         _config_writer_tpl_dir = 'templates'
 
     The generated configuration files directory defaults to '.' and the
     templates directory to 'templates'. _config_writer_files has no default and
     must be specified in either way. It can be string or a tuple if more than
-    one configuration file must be generated.
+    one configuration file must be generated. _config_writer_cfg_dir could be a
+    dict mapping which file should be stored in which directory, or a single
+    string if all the config files should go to the same directory.
 
     The template filename and the generated configuration filename are both the
     same (so if you want to generate some /etc/config, you should have some
     templates/config template). That's why _config_writer_cfg_dir and
-    _config_writer_tpl_dir can't be the same.
+    _config_writer_tpl_dir can't be the same. This is not true for very
+    specific cases where _write_single_config() is used.
 
     When you write your Handler, you should call _config_build_templates() in
     you Handler constructor to build the templates.
@@ -349,6 +397,15 @@ class ConfigWriter:
             vars = vars(template_name)
         return self._config_writer_templates[template_name].render(**vars)
 
+    def _get_config_path(self, template_name, config_filename=None):
+        r"Get a complete configuration path."
+        if not config_filename:
+            config_filename = template_name
+        if isinstance(self._config_writer_cfg_dir, basestring):
+            return path.join(self._config_writer_cfg_dir, config_filename)
+        return path.join(self._config_writer_cfg_dir[template_name],
+                            config_filename)
+
     def _write_single_config(self, template_name, config_filename=None, vars=None):
         r"""_write_single_config(template_name[, config_filename[, vars]]).
 
@@ -361,8 +418,6 @@ class ConfigWriter:
         variables to replace in the templates, if not, it looks for a
         _get_config_vars() method to get it.
         """
-        if not config_filename:
-            config_filename = template_name
         if vars is None:
             if hasattr(self, '_get_config_vars'):
                 vars = self._get_config_vars(template_name)
@@ -370,7 +425,7 @@ class ConfigWriter:
                 vars = dict()
         elif callable(vars):
             vars = vars(template_name)
-        f = file(path.join(self._config_writer_cfg_dir, config_filename), 'w')
+        f = file(self._get_config_path(template_name, config_filename), 'w')
         ctx = Context(f, **vars)
         self._config_writer_templates[template_name].render_context(ctx)
         f.close()
@@ -432,6 +487,32 @@ class ServiceHandler(Handler):
     def reload(self):
         r"reload() -> None :: Reload the configuration of the service."
         call(self._service_reload)
+
+class RestartHandler(Handler):
+    r"""RestartHandler() -> RestartHandler :: Provides generic restart command.
+
+    This is a helper class to inherit from to automatically add a restart
+    command that first stop the service and then starts it again (using start
+    and stop commands respectively).
+    """
+
+    @handler(u'Restart the service (alias to stop + start).')
+    def restart(self):
+        r"restart() -> None :: Restart the service calling stop() and start()."
+        self.stop()
+        self.start()
+
+class ReloadHandler(Handler):
+    r"""ReloadHandler() -> ReloadHandler :: Provides generic reload command.
+
+    This is a helper class to inherit from to automatically add a reload
+    command that calls restart.
+    """
+
+    @handler(u'Reload the service config (alias to restart).')
+    def reload(self):
+        r"reload() -> None :: Reload the configuration of the service."
+        self.restart()
 
 class InitdHandler(Handler):
     r"""InitdHandler([initd_name[, initd_dir]]) -> InitdHandler.
@@ -576,77 +657,354 @@ class SubHandler(Handler):
         r"Initialize the object, see the class documentation for details."
         self.parent = parent
 
-class DictSubHandler(SubHandler):
-    r"""DictSubHandler(parent) -> DictSubHandler instance.
+class ContainerSubHandler(SubHandler):
+    r"""ContainerSubHandler(parent) -> ContainerSubHandler instance.
 
-    This is a helper class to inherit from to automatically handle subcommands
-    that operates over a dict parent attribute.
+    This is a helper class to implement ListSubHandler and DictSubHandler. You
+    should not use it directly.
 
-    The dict attribute to handle and the class of objects that it contains can
-    be defined by calling the constructor or in a more declarative way as
-    class attributes, like:
+    The container attribute to handle and the class of objects that it
+    contains can be defined by calling the constructor or in a more declarative
+    way as class attributes, like:
 
-    class TestHandler(DictSubHandler):
-        _dict_subhandler_attr = 'some_dict'
-        _dict_subhandler_class = SomeClass
+    class TestHandler(ContainerSubHandler):
+        _cont_subhandler_attr = 'some_cont'
+        _cont_subhandler_class = SomeClass
 
-    This way, the parent's some_dict attribute (self.parent.some_dict) will be
-    managed automatically, providing the commands: add, update, delete, get,
-    list and show.
+    This way, the parent's some_cont attribute (self.parent.some_cont)
+    will be managed automatically, providing the commands: add, update,
+    delete, get and show. New items will be instances of SomeClass,
+    which should provide a cmp operator to see if the item is on the
+    container and an update() method, if it should be possible to modify
+    it. If SomeClass has an _add, _update or _delete attribute, it set
+    them to true when the item is added, updated or deleted respectively
+    (in case that it's deleted, it's not removed from the container,
+    but it's not listed either).
     """
 
-    def __init__(self, parent, attr=None, key=None, cls=None):
+    def __init__(self, parent, attr=None, cls=None):
         r"Initialize the object, see the class documentation for details."
         self.parent = parent
         if attr is not None:
-            self._dict_subhandler_attr = attr
-        if key is not None:
-            self._dict_subhandler_key = key
+            self._cont_subhandler_attr = attr
         if cls is not None:
-            self._dict_subhandler_class = cls
+            self._cont_subhandler_class = cls
 
-    def _dict(self):
-        return getattr(self.parent, self._dict_subhandler_attr)
+    def _attr(self, attr=None):
+        if attr is None:
+            return getattr(self.parent, self._cont_subhandler_attr)
+        setattr(self.parent, self._cont_subhandler_attr, attr)
+
+    def _vattr(self):
+        if isinstance(self._attr(), dict):
+            return dict([(k, i) for (k, i) in self._attr().items()
+                    if not hasattr(i, '_delete') or not i._delete])
+        return [i for i in self._attr()
+                if not hasattr(i, '_delete') or not i._delete]
 
     @handler(u'Add a new item')
-    def add(self, key, *args, **kwargs):
-        r"add(key, ...) -> None :: Add an item to the dict."
-        item = self._dict_subhandler_class(key, *args, **kwargs)
-        if key in self._dict():
-            raise ItemAlreadyExistsError(key)
-        self._dict()[key] = item
+    def add(self, *args, **kwargs):
+        r"add(...) -> None :: Add an item to the list."
+        item = self._cont_subhandler_class(*args, **kwargs)
+        if hasattr(item, '_add'):
+            item._add = True
+        key = item
+        if isinstance(self._attr(), dict):
+            key = item.as_tuple()[0]
+        # do we have the same item? then raise an error
+        if key in self._vattr():
+            raise ItemAlreadyExistsError(item)
+        # do we have the same item, but logically deleted? then update flags
+        if key in self._attr():
+            index = key
+            if not isinstance(self._attr(), dict):
+                index = self._attr().index(item)
+            if hasattr(item, '_add'):
+                self._attr()[index]._add = False
+            if hasattr(item, '_delete'):
+                self._attr()[index]._delete = False
+        else: # it's *really* new
+            if isinstance(self._attr(), dict):
+                self._attr()[key] = item
+            else:
+                self._attr().append(item)
 
     @handler(u'Update an item')
-    def update(self, key, *args, **kwargs):
-        r"update(key, ...) -> None :: Update an item of the dict."
-        if not key in self._dict():
-            raise ItemNotFoundError(key)
-        self._dict()[key].update(*args, **kwargs)
+    def update(self, index, *args, **kwargs):
+        r"update(index, ...) -> None :: Update an item of the container."
+        # TODO make it right with metaclasses, so the method is not created
+        # unless the update() method really exists.
+        # TODO check if the modified item is the same of an existing one
+        if not isinstance(self._attr(), dict):
+            index = int(index) # TODO validation
+        if not hasattr(self._cont_subhandler_class, 'update'):
+            raise CommandNotFoundError(('update',))
+        try:
+            item = self._vattr()[index]
+            item.update(*args, **kwargs)
+            if hasattr(item, '_update'):
+                item._update = True
+        except LookupError:
+            raise ItemNotFoundError(index)
 
     @handler(u'Delete an item')
-    def delete(self, key):
-        r"delete(key) -> None :: Delete an item of the dict."
-        if not key in self._dict():
-            raise ItemNotFoundError(key)
-        del self._dict()[key]
+    def delete(self, index):
+        r"delete(index) -> None :: Delete an item of the container."
+        if not isinstance(self._attr(), dict):
+            index = int(index) # TODO validation
+        try:
+            item = self._vattr()[index]
+            if hasattr(item, '_delete'):
+                item._delete = True
+            else:
+                del self._attr()[index]
+            return item
+        except LookupError:
+            raise ItemNotFoundError(index)
+
+    @handler(u'Remove all items (use with care).')
+    def clear(self):
+        r"clear() -> None :: Delete all items of the container."
+        if isinstance(self._attr(), dict):
+            self._attr.clear()
+        else:
+            self._attr(list())
 
     @handler(u'Get information about an item')
-    def get(self, key):
-        r"get(key) -> Host :: List all the information of an item."
-        if not key in self._dict():
-            raise ItemNotFoundError(key)
-        return self._dict()[key]
+    def get(self, index):
+        r"get(index) -> item :: List all the information of an item."
+        if not isinstance(self._attr(), dict):
+            index = int(index) # TODO validation
+        try:
+            return self._vattr()[index]
+        except LookupError:
+            raise ItemNotFoundError(index)
+
+    @handler(u'Get information about all items')
+    def show(self):
+        r"show() -> list of items :: List all the complete items information."
+        if isinstance(self._attr(), dict):
+            return self._attr().values()
+        return self._vattr()
+
+class ListSubHandler(ContainerSubHandler):
+    r"""ListSubHandler(parent) -> ListSubHandler instance.
+
+    ContainerSubHandler holding lists. See ComposedSubHandler documentation
+    for details.
+    """
+
+    @handler(u'Get how many items are in the list')
+    def len(self):
+        r"len() -> int :: Get how many items are in the list."
+        return len(self._vattr())
+
+class DictSubHandler(ContainerSubHandler):
+    r"""DictSubHandler(parent) -> DictSubHandler instance.
+
+    ContainerSubHandler holding dicts. See ComposedSubHandler documentation
+    for details.
+    """
 
     @handler(u'List all the items by key')
     def list(self):
         r"list() -> tuple :: List all the item keys."
-        return self._dict().keys()
+        return self._attr().keys()
+
+class ComposedSubHandler(SubHandler):
+    r"""ComposedSubHandler(parent) -> ComposedSubHandler instance.
+
+    This is a helper class to implement ListComposedSubHandler and
+    DictComposedSubHandler. You should not use it directly.
+
+    This class is usefull when you have a parent that has a dict (cont)
+    that stores some object that has an attribute (attr) with a list or
+    a dict of objects of some class. In that case, this class provides
+    automated commands to add, update, delete, get and show that objects.
+    This commands takes the cont (key of the dict for the object holding
+    the attr), and an index for access the object itself (in the attr
+    list/dict).
+
+    The container object (cont) that holds a containers, the attribute of
+    that object that is the container itself, and the class of the objects
+    that it contains can be defined by calling the constructor or in a
+    more declarative way as class attributes, like:
+
+    class TestHandler(ComposedSubHandler):
+        _comp_subhandler_cont = 'some_cont'
+        _comp_subhandler_attr = 'some_attr'
+        _comp_subhandler_class = SomeClass
+
+    This way, the parent's some_cont attribute (self.parent.some_cont)
+    will be managed automatically, providing the commands: add, update,
+    delete, get and show for manipulating a particular instance that holds
+    of SomeClass. For example, updating an item at the index 5 is the same
+    (simplified) as doing parent.some_cont[cont][5].update().
+    SomeClass should provide a cmp operator to see if the item is on the
+    container and an update() method, if it should be possible to modify
+    it. If SomeClass has an _add, _update or _delete attribute, it set
+    them to true when the item is added, updated or deleted respectively
+    (in case that it's deleted, it's not removed from the container,
+    but it's not listed either). If the container objects
+    (parent.some_cont[cont]) has an _update attribute, it's set to True
+    when any add, update or delete command is executed.
+    """
+
+    def __init__(self, parent, cont=None, attr=None, cls=None):
+        r"Initialize the object, see the class documentation for details."
+        self.parent = parent
+        if cont is not None:
+            self._comp_subhandler_cont = cont
+        if attr is not None:
+            self._comp_subhandler_attr = attr
+        if cls is not None:
+            self._comp_subhandler_class = cls
+
+    def _cont(self):
+        return getattr(self.parent, self._comp_subhandler_cont)
+
+    def _attr(self, cont, attr=None):
+        if attr is None:
+            return getattr(self._cont()[cont], self._comp_subhandler_attr)
+        setattr(self._cont()[cont], self._comp_subhandler_attr, attr)
+
+    def _vattr(self, cont):
+        if isinstance(self._attr(cont), dict):
+            return dict([(k, i) for (k, i) in self._attr(cont).items()
+                    if not hasattr(i, '_delete') or not i._delete])
+        return [i for i in self._attr(cont)
+                if not hasattr(i, '_delete') or not i._delete]
+
+    @handler(u'Add a new item')
+    def add(self, cont, *args, **kwargs):
+        r"add(cont, ...) -> None :: Add an item to the list."
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        item = self._comp_subhandler_class(*args, **kwargs)
+        if hasattr(item, '_add'):
+            item._add = True
+        key = item
+        if isinstance(self._attr(cont), dict):
+            key = item.as_tuple()[0]
+        # do we have the same item? then raise an error
+        if key in self._vattr(cont):
+            raise ItemAlreadyExistsError(item)
+        # do we have the same item, but logically deleted? then update flags
+        if key in self._attr(cont):
+            index = key
+            if not isinstance(self._attr(cont), dict):
+                index = self._attr(cont).index(item)
+            if hasattr(item, '_add'):
+                self._attr(cont)[index]._add = False
+            if hasattr(item, '_delete'):
+                self._attr(cont)[index]._delete = False
+        else: # it's *really* new
+            if isinstance(self._attr(cont), dict):
+                self._attr(cont)[key] = item
+            else:
+                self._attr(cont).append(item)
+        if hasattr(self._cont()[cont], '_update'):
+            self._cont()[cont]._update = True
+
+    @handler(u'Update an item')
+    def update(self, cont, index, *args, **kwargs):
+        r"update(cont, index, ...) -> None :: Update an item of the container."
+        # TODO make it right with metaclasses, so the method is not created
+        # unless the update() method really exists.
+        # TODO check if the modified item is the same of an existing one
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        if not isinstance(self._attr(cont), dict):
+            index = int(index) # TODO validation
+        if not hasattr(self._comp_subhandler_class, 'update'):
+            raise CommandNotFoundError(('update',))
+        try:
+            item = self._vattr(cont)[index]
+            item.update(*args, **kwargs)
+            if hasattr(item, '_update'):
+                item._update = True
+            if hasattr(self._cont()[cont], '_update'):
+                self._cont()[cont]._update = True
+        except LookupError:
+            raise ItemNotFoundError(index)
+
+    @handler(u'Delete an item')
+    def delete(self, cont, index):
+        r"delete(cont, index) -> None :: Delete an item of the container."
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        if not isinstance(self._attr(cont), dict):
+            index = int(index) # TODO validation
+        try:
+            item = self._vattr(cont)[index]
+            if hasattr(item, '_delete'):
+                item._delete = True
+            else:
+                del self._attr(cont)[index]
+            if hasattr(self._cont()[cont], '_update'):
+                self._cont()[cont]._update = True
+            return item
+        except LookupError:
+            raise ItemNotFoundError(index)
+
+    @handler(u'Remove all items (use with care).')
+    def clear(self, cont):
+        r"clear(cont) -> None :: Delete all items of the container."
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        if isinstance(self._attr(cont), dict):
+            self._attr(cont).clear()
+        else:
+            self._attr(cont, list())
+
+    @handler(u'Get information about an item')
+    def get(self, cont, index):
+        r"get(cont, index) -> item :: List all the information of an item."
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        if not isinstance(self._attr(cont), dict):
+            index = int(index) # TODO validation
+        try:
+            return self._vattr(cont)[index]
+        except LookupError:
+            raise ItemNotFoundError(index)
 
     @handler(u'Get information about all items')
-    def show(self):
-        r"show() -> list of Hosts :: List all the complete items information."
-        return self._dict().values()
+    def show(self, cont):
+        r"show(cont) -> list of items :: List all the complete items information."
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        if isinstance(self._attr(cont), dict):
+            return self._attr(cont).values()
+        return self._vattr(cont)
 
+class ListComposedSubHandler(ComposedSubHandler):
+    r"""ListComposedSubHandler(parent) -> ListComposedSubHandler instance.
+
+    ComposedSubHandler holding lists. See ComposedSubHandler documentation
+    for details.
+    """
+
+    @handler(u'Get how many items are in the list')
+    def len(self, cont):
+        r"len(cont) -> int :: Get how many items are in the list."
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        return len(self._vattr(cont))
+
+class DictComposedSubHandler(ComposedSubHandler):
+    r"""DictComposedSubHandler(parent) -> DictComposedSubHandler instance.
+
+    ComposedSubHandler holding dicts. See ComposedSubHandler documentation
+    for details.
+    """
+
+    @handler(u'List all the items by key')
+    def list(self, cont):
+        r"list(cont) -> tuple :: List all the item keys."
+        if not cont in self._cont():
+            raise ContainerNotFoundError(cont)
+        return self._attr(cont).keys()
 
 
 if __name__ == '__main__':

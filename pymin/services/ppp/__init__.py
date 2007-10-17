@@ -7,18 +7,7 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter \
                                 ,TransactionalHandler, DictSubHandler, call
 
-__ALL__ = ('PppHandler')
-
-class Error(HandlerError):
-    r"""
-    Error(command) -> Error instance :: Base ConnectionHandler exception class.
-
-    All exceptions raised by the ConnectionHandler inherits from this one, so you can
-    easily catch any ConnectionHandler exception.
-
-    message - A descriptive error message.
-    """
-    pass
+__ALL__ = ('PppHandler',)
 
 class ConnectionError(Error, KeyError):
     r"""

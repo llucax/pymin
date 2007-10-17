@@ -39,8 +39,17 @@ class Sequence:
         r"obj[i] -> object :: Get item with the index i."
         return self.as_tuple()[i]
 
+    def __unicode__(self):
+        return u'%s%r' % (self.__class__.__name__, self.as_tuple())
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
     def __repr__(self):
-        return '%s%r' % (self.__class__.__name__, self.as_tuple())
+        return str(self)
+
+    def __cmp__(self, other):
+        return cmp(self.as_tuple(), other.as_tuple())
 
 def as_tuple(obj):
     r"""as_tuple(obj) -> tuple :: Convert objects to tuple.

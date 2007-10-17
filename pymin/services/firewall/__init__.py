@@ -8,56 +8,9 @@ from os import path
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, ServiceHandler, \
-                                TransactionalHandler
+                                TransactionalHandler, ListSubHandler
 
-__ALL__ = ('FirewallHandler', 'Error', 'RuleError', 'RuleAlreadyExistsError',
-           'RuleNotFoundError')
-
-class Error(HandlerError):
-    r"""
-    Error(command) -> Error instance :: Base FirewallHandler exception class.
-
-    All exceptions raised by the FirewallHandler inherits from this one, so you can
-    easily catch any FirewallHandler exception.
-
-    message - A descriptive error message.
-    """
-    pass
-
-class RuleError(Error, KeyError):
-    r"""
-    RuleError(rule) -> RuleError instance.
-
-    This is the base exception for all rule related errors.
-    """
-
-    def __init__(self, rule):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Rule error: "%s"' % rule
-
-class RuleAlreadyExistsError(RuleError):
-    r"""
-    RuleAlreadyExistsError(rule) -> RuleAlreadyExistsError instance.
-
-    This exception is raised when trying to add a rule that already exists.
-    """
-
-    def __init__(self, rule):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Rule already exists: "%s"' % rule
-
-class RuleNotFoundError(RuleError):
-    r"""
-    RuleNotFoundError(rule) -> RuleNotFoundError instance.
-
-    This exception is raised when trying to operate on a rule that doesn't
-    exists.
-    """
-
-    def __init__(self, rule):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Rule not found: "%s"' % rule
-
+__ALL__ = ('FirewallHandler',)
 
 class Rule(Sequence):
     r"""Rule(chain, target[, src[, dst[, ...]]]) -> Rule instance.
@@ -97,25 +50,13 @@ class Rule(Sequence):
         if src_port is not None: self.src_port = src_port
         if dst_port is not None: self.dst_port = dst_port
 
-    def __cmp__(self, other):
-        r"Compares two Rule objects."
-        if self.chain == other.chain \
-                and self.target == other.target \
-                and self.src == other.src \
-                and self.dst == other.dst \
-                and self.protocol == other.protocol \
-                and self.src_port == other.src_port \
-                and self.dst_port == other.dst_port:
-            return 0
-        return cmp(id(self), id(other))
-
     def as_tuple(self):
         r"Return a tuple representing the rule."
         return (self.chain, self.target, self.src, self.dst, self.protocol,
                     self.src_port, self.dst_port)
 
-class RuleHandler(Handler):
-    r"""RuleHandler(rules) -> RuleHandler instance :: Handle a list of rules.
+class RuleHandler(ListSubHandler):
+    r"""RuleHandler(parent) -> RuleHandler instance :: Handle a list of rules.
 
     This class is a helper for FirewallHandler to do all the work related to rules
     administration.
@@ -125,51 +66,8 @@ class RuleHandler(Handler):
 
     handler_help = u"Manage firewall rules"
 
-    def __init__(self, parent):
-        r"Initialize the object, see class documentation for details."
-        self.parent = parent
-
-    @handler(u'Add a new rule')
-    def add(self, *args, **kwargs):
-        r"add(rule) -> None :: Add a rule to the rules list (see Rule doc)."
-        rule = Rule(*args, **kwargs)
-        if rule in self.parent.rules:
-            raise RuleAlreadyExistsError(rule)
-        self.parent.rules.append(rule)
-
-    @handler(u'Update a rule')
-    def update(self, index, *args, **kwargs):
-        r"update(index, rule) -> None :: Update a rule (see Rule doc)."
-        # TODO check if the modified rule is the same of an existing one
-        index = int(index) # TODO validation
-        try:
-            self.parent.rules[index].update(*args, **kwargs)
-        except IndexError:
-            raise RuleNotFoundError(index)
-
-    @handler(u'Delete a rule')
-    def delete(self, index):
-        r"delete(index) -> Rule :: Delete a rule from the list returning it."
-        index = int(index) # TODO validation
-        try:
-            return self.parent.rules.pop(index)
-        except IndexError:
-            raise RuleNotFoundError(index)
-
-    @handler(u'Get information about a rule')
-    def get(self, index):
-        r"get(rule) -> Rule :: Get all the information about a rule."
-        index = int(index) # TODO validation
-        try:
-            return self.parent.rules[index]
-        except IndexError:
-            raise RuleNotFoundError(index)
-
-    @handler(u'Get information about all rules')
-    def show(self):
-        r"show() -> list of Rules :: List all the complete rules information."
-        return self.parent.rules
-
+    _cont_subhandler_attr = 'rules'
+    _cont_subhandler_class = Rule
 
 class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
                       TransactionalHandler):

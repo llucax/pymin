@@ -202,14 +202,17 @@ class Handler:
             d = dict()
             for a in dir(self):
                 h = getattr(self, a)
+                if a == 'parent': continue # Skip parents in SubHandlers
                 if is_handler(h) or isinstance(h, Handler):
                     d[a] = h.handler_help
             return d
         # A command was specified
+        if command == 'parent': # Skip parents in SubHandlers
+            raise HelpNotFoundError(command)
         if not hasattr(self, command.encode('utf-8')):
             raise HelpNotFoundError(command)
         handler = getattr(self, command.encode('utf-8'))
-        if not is_handler(handler) and not hasattr(handler):
+        if not is_handler(handler) and not hasattr(handler, 'handler_help'):
             raise HelpNotFoundError(command)
         return handler.handler_help
 
@@ -442,6 +445,8 @@ class Dispatcher:
                     raise CommandIsAHandlerError(command)
                 raise CommandNotFoundError(command)
             command.append(route[0])
+            if route[0] == 'parent':
+                raise CommandNotFoundError(command)
             if not hasattr(handler, route[0].encode('utf-8')):
                 if isinstance(handler, Handler) and len(command) > 1:
                     raise CommandNotInHandlerError(command)
