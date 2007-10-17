@@ -9,7 +9,7 @@ from pymin.services.util import Restorable, ConfigWriter \
 
 __ALL__ = ('PppHandler',)
 
-class ConnectionError(Error, KeyError):
+class ConnectionError(HandlerError, KeyError):
     r"""
     ConnectionError(hostname) -> ConnectionError instance
 
