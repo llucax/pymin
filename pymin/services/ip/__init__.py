@@ -14,7 +14,7 @@ __ALL__ = ('IpHandler',)
 
 # TODO: convertir HopHandler a ComposedSubHandler
 
-class HopError(Error):
+class HopError(HandlerError):
 
     def __init__(self, hop):
         self.message = u'Hop error : "%s"' % hop
