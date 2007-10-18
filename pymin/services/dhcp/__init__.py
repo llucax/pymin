@@ -6,7 +6,7 @@ from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, ParametersHandler, \
-                                DictSubHandler
+                                DictSubHandler, ReloadHandler
 
 __ALL__ = ('DhcpHandler',)
 
@@ -46,8 +46,8 @@ class HostHandler(DictSubHandler):
     _cont_subhandler_attr = 'hosts'
     _cont_subhandler_class = Host
 
-class DhcpHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
-                  ParametersHandler):
+class DhcpHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler,
+                  ParametersHandler, InitdHandler):
     r"""DhcpHandler([pickle_dir[, config_dir]]) -> DhcpHandler instance.
 
     Handles DHCP service commands for the dhcpd program.
