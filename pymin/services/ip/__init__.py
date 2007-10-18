@@ -195,49 +195,34 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            #call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
-            print self._render_config('route_flush', dict(dev=device.name))
-            #call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
-            print self._render_config('ip_flush', dict(dev=device.name))
+            call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+            call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
             for address in device.addrs.values():
-                print self._render_config('ip_add', dict(
+                broadcast = address.broadcast
+                if broadcast is None:
+                    broadcast = '+'
+                call(self._render_config('ip_add', dict(
                         dev = device.name,
                         addr = address.ip,
                         netmask = address.netmask,
-                        broadcast = address.broadcast,
-                    ))
-                #call(self._render_config('ip_add', dict(
-                        #dev = device.name,
-                        #addr = address.ip,
-                        #prefix = address.prefix,
-                        #broadcast = address.broadcast,
-                    #)
-                #), shell=True)
+                        broadcast = broadcast,
+                    )
+                ), shell=True)
             for route in device.routes:
-                print self._render_config('route_add', dict(
+                call(self._render_config('route_add', dict(
                         dev = device.name,
                         net_addr = route.net_addr,
                         prefix = route.prefix,
                         gateway = route.gateway,
-                    ))
-                #call(self._render_config('route_add', dict(
-                        #dev = device.name,
-                        #net_addr = route.net_addr,
-                        #prefix = route.prefix,
-                        #gateway = route.gateway,
-                    #)
-                #), shell=True)
+                    )
+                ), shell=True)
 
         if self.hops:
-            print 'ip route del default'
-            #call('ip route del default', shell=True)
-            print self._render_config('hop', dict(
+            call('ip route del default', shell=True)
+            call(self._render_config('hop', dict(
                         hops = self.hops,
-                    ))
-            #call(self._render_config('hop', dict(
-                        #hops = self.hops,
-                    #)
-                 #), shell=True)
+                    )
+                 ), shell=True)
 
 
 if __name__ == '__main__':
