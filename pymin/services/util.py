@@ -12,8 +12,8 @@ except ImportError:
 from pymin.dispatcher import Handler, handler, HandlerError, \
                                 CommandNotFoundError
 
-#DEBUG = False
-DEBUG = True
+DEBUG = False
+#DEBUG = True
 
 __ALL__ = ('Error', 'ReturnNot0Error', 'ExecutionError', 'ItemError',
             'ItemAlreadyExistsError', 'ItemNotFoundError', 'ContainerError',
@@ -177,6 +177,7 @@ def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         print 'Executing command:', command
         return
     try:
+        print 'Executing command:', command
         r = subprocess.call(command, stdin=stdin, stdout=stdout, stderr=stderr,
                                 universal_newlines=universal_newlines,
                                 close_fds=close_fds, **kw)
