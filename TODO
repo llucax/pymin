@@ -20,9 +20,6 @@ Ideas / TODO:
   * Paths.
 
 * SubHandlers:
-  * ComposeDictSubHandler con soporte de dirty/del/add (para ip y DNS).
-  * Agregar SimpleDictSubHandler? (que no use una clase, que use un dict
-    de strings directamente, para Proxy Users por ej.). Ídem List.
   * Agregar SetSubHandler? (para Proxy Hosts)
 
 * Agregar logging.
