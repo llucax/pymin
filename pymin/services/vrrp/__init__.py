@@ -9,8 +9,6 @@ from pymin.services.util import Restorable, TransactionalHandler, ParametersHand
 
 __ALL__ = ('VrrpHandler',)
 
-pid_filename = 'vrrp.pid'
-
 class VrrpHandler(Restorable, ParametersHandler, TransactionalHandler):
     handler_help = u"Manage VRRP service"
 
@@ -32,18 +30,19 @@ class VrrpHandler(Restorable, ParametersHandler, TransactionalHandler):
     @handler('Starts the service')
     def start(self):
         if self.params['prio'] != '':
-            #call(('vrrp','-i',self.params[dev],'-v',self.params[id],'-p',self.params[prio],self.params[ipaddress]))
-            print ('vrrp','-i',self.params['dev'],'-v',self.params['id'],'-p',self.params['prio'],self.params['ipaddress'])
+            call(('/usr/local/bin/vrrpd','-i',self.params['dev'],'-v',self.params['id'],'-p',self.params['prio'],self.params['ipaddress']))
+            #print ('vrrpd','-i',self.params['dev'],'-v',self.params['id'],'-p',self.params['prio'],self.params['ipaddress'])
         else:
-            #call(('vrrp','-i',self.params[dev],'-v',self.params[id],self.params[ipaddress]))
-            print ('vrrp','-i',self.params['dev'],'-v',self.params['id'],self.params['ipaddress'])
+            call(('/usr/local/bin/vrrpd','-i',self.params['dev'],'-v',self.params['id'],self.params['ipaddress']))
+            #print ('vrrpd','-i',self.params['dev'],'-v',self.params['id'],self.params['ipaddress'])
 
     @handler('Stop the service')
     def stop(self):
         try :
-            f = file(path.join(self._pid_dir, pid_filename ), 'r')
-            #call(('kill','<',f.read()))
-            print(('kill','<',f.read()))
+            pid = 'vrrpd' + '_' + self.params['dev'] + '_' + self.params['id'] + '.pid'
+            f = file(path.join(self._pid_dir, pid ), 'r')
+            call(('kill',f.read().strip('\n')))
+            #print('kill','<',f.read())
         except IOError:
             pass
 
