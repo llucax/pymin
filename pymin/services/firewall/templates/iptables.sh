@@ -15,6 +15,10 @@ def optional(switch, value):
 
 /usr/sbin/iptables -t filter -F
 
+/usr/sbin/iptables -t filter -P INPUT ACCEPT
+/usr/sbin/iptables -t filter -P OUTPUT ACCEPT
+/usr/sbin/iptables -t filter -P FORWARD ACCEPT
+
 % for (index, rule) in enumerate(rules):
 /usr/sbin/iptables -t filter \
     -I ${rule.chain|s} ${index+1|s} \
