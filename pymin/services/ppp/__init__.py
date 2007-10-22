@@ -67,8 +67,8 @@ class ConnectionHandler(DictSubHandler):
 
     handler_help = u"Manages connections for the ppp service"
 
-    _dict_subhandler_attr = 'conns'
-    _dict_subhandler_class = Connection
+    _cont_subhandler_attr = 'conns'
+    _cont_subhandler_class = Connection
 
 class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
 
@@ -94,16 +94,18 @@ class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
     @handler('Starts the service')
     def start(self, name):
         if name in self.conns:
-            #call(('pon', name))
-            print ('pon', name)
+            call(['pppd','call', name],stdout=None, stderr=None)
+            #print ('pon', name)
         else:
             raise ConnectionNotFoundError(name)
 
     @handler('Stops the service')
     def stop(self, name):
         if name in self.conns:
-            #call(('poff', name))
-            print ('poff', name)
+            if path.exists('/var/run/ppp-' + name + '.pid'):
+                pid = file('/var/run/ppp-' + name + '.pid').readline().strip()
+                call(['kill',pid],stdout=None, stderr=None)
+            #print ('poff', name)
         else:
             raise ConnectionNotFoundError(name)
 

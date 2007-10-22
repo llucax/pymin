@@ -1,7 +1,16 @@
+updetach
 % if conn.type != 'TUNNEL':
 name ${conn.username}
 file /etc/ppp/options.${conn.name}
 ipparam ${conn.name}
+# pppoe has a lower mtu/mru
+mtu 1492
+mru 1492
+# switch off all compressions (this is a must)
+nopcomp
+# this is recommended
+novjccomp
+noccp
 % else:
 pty "pptp ${conn.server} --nolaunchpppd"
 name ${conn.username}
