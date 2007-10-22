@@ -1,6 +1,8 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
+import os
 from os import path
+from signal import SIGTERM
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
@@ -104,7 +106,7 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
         for name in names:
             if name in self.conns:
                 if not self.conns[name]._running:
-                    call(('pon', name))
+                    call(('pppd', 'call', name))
                     self.conns[name]._running = True
                     self._dump_attr('conns')
             else:
@@ -119,6 +121,12 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
             if name in self.conns:
                 if self.conns[name]._running:
                     call(('poff', name))
+                    if path.exists('/var/run/ppp-' + name + '.pid'):
+                        pid = file('/var/run/ppp-' + name + '.pid').readline()
+                        try:
+                            os.kill(int(pid.strip()), SIGTERM)
+                        except OSError:
+                            pass # XXX report error?
                     self.conns[name]._running = False
                     self._dump_attr('conns')
             else:
@@ -185,3 +193,4 @@ if __name__ == '__main__':
     p.commit()
     print p.conn.list()
     print p.conn.show()
+

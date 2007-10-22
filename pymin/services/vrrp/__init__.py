@@ -13,8 +13,6 @@ from pymin.services.util import Restorable, TransactionalHandler, \
 
 __ALL__ = ('VrrpHandler',)
 
-pid_filename = 'vrrp.pid'
-
 class VrrpHandler(Restorable, ParametersHandler, ReloadHandler, RestartHandler,
                         ServiceHandler, TransactionalHandler):
 
@@ -40,6 +38,7 @@ class VrrpHandler(Restorable, ParametersHandler, ReloadHandler, RestartHandler,
 
     def _service_stop(self):
         try:
+            pid_filename = 'vrrpd_%(dev)s_%(id)s.pid' % self.params
             pid = file(path.join(self._pid_dir, pid_filename )).read().strip()
             os.kill(int(pid), SIGTERM)
         except (IOError, OSError):
@@ -56,3 +55,4 @@ if __name__ == '__main__':
     v = VrrpHandler()
     v.set('prio','10')
     v.commit()
+
