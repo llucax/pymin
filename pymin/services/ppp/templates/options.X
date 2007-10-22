@@ -1,3 +1,4 @@
+linkname ${conn.name}
 % if conn.type == 'PPP':
 lock ${conn.device}
 % elif conn.type == 'OE':
