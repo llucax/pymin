@@ -67,14 +67,14 @@ class ConnectionHandler(DictSubHandler):
 
     handler_help = u"Manages connections for the ppp service"
 
-    _dict_subhandler_attr = 'conns'
-    _dict_subhandler_class = Connection
+    _cont_subhandler_attr = 'conns'
+    _cont_subhandler_class = Connection
 
 class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     handler_help = u"Manage ppp service"
 
-    _persistent_attrs = ('conns')
+    _persistent_attrs = ['conns']
 
     _restorable_defaults = dict(
         conns  = dict(),
