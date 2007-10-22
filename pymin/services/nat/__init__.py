@@ -6,7 +6,7 @@ from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, RestartHandler, \
                                 ReloadHandler, TransactionalHandler, \
-                                ListSubHandler, call
+                                ServiceHandler, ListSubHandler, call
 
 __ALL__ = ('NatHandler',)
 
@@ -180,8 +180,8 @@ class MasqHandler(ListSubHandler):
     _cont_subhandler_attr = 'masqs'
     _cont_subhandler_class = Masq
 
-class NatHandler(Restorable, ConfigWriter, RestartHandler, ReloadHandler,
-                      TransactionalHandler):
+class NatHandler(Restorable, ConfigWriter, ReloadHandler, ServiceHandler,
+                        TransactionalHandler):
     r"""NatHandler([pickle_dir[, config_dir]]) -> NatHandler instance.
 
     Handles NAT commands using iptables.
@@ -203,8 +203,8 @@ class NatHandler(Restorable, ConfigWriter, RestartHandler, ReloadHandler,
         masqs=list(),
     )
 
-    @handler(u'Start the service.')
-    def start(self):
+    def _service_start(self):
+        call(('iptables', '-t', 'nat', '-F'))
         for (index, port) in enumerate(self.ports):
             call(['iptables'] + port.as_call_list(index+1))
         for (index, snat) in enumerate(self.snats):
@@ -212,14 +212,15 @@ class NatHandler(Restorable, ConfigWriter, RestartHandler, ReloadHandler,
         for (index, masq) in enumerate(self.masqs):
             call(['iptables'] + masq.as_call_list(index+1))
 
-    @handler(u'Stop the service.')
-    def stop(self):
+    def _service_stop(self):
         call(('iptables', '-t', 'nat', '-F'))
+
+    _service_restart = _service_start
 
     def __init__(self, pickle_dir='.'):
         r"Initialize the object, see class documentation for details."
         self._persistent_dir = pickle_dir
-        self._restore()
+        ServiceHandler.__init__(self)
         self.forward = PortForwardHandler(self)
         self.snat = SNatHandler(self)
         self.masq = MasqHandler(self)

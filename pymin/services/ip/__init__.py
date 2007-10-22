@@ -187,6 +187,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
         self._restore()
+        self._write_config()
         self.addr = AddressHandler(self)
         self.route = RouteHandler(self)
         self.dev = DeviceHandler(self)

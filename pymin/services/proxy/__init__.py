@@ -70,7 +70,7 @@ class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
         self._persistent_dir = pickle_dir
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
-        self._restore()
+        InitdHandler.__init__(self)
         self.host = HostHandler(self)
         self.user = UserHandler(self)
 

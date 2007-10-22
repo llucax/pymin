@@ -20,31 +20,19 @@ Ideas / TODO:
   * Paths.
 
 * SubHandlers:
-  * ComposeDictSubHandler con soporte de dirty/del/add (para ip y DNS).
-  * Agregar SimpleDictSubHandler? (que no use una clase, que use un dict
-    de strings directamente, para Proxy Users por ej.). Ídem List.
   * Agregar SetSubHandler? (para Proxy Hosts)
 
 * Agregar logging.
 
 * Agregar validación con formencode.
 
-* Ver como manejar la información sobre si un servicio está andando o no. Si se
-  agrega una acción 'status' para ver el estado y si ese estado se saca de posta
-  de /proc o si es un estado interno y se asume que los servicios no se caen (no
-  creo que sea una buena idea esto último). Además habría que ver cuando arranca
-  el pymin, si se inician servicios automáticamente o no y si la info de qué
-  servicios iniciar o no es persistente y si puede configurarla el usuario.
+* Hacer que el estado sobre si un servicio está andando o no sea más confiable
+  que un simple flag interno (en caso de ver que realmente esté corriendo,
+  probablemente sea una buena idea que haya un flag que indique si hay que
+  levantarlo en el inicio).
 
 * No usar comandos con templates, porque después si no hay que ejecutarlos con
   un shell (porque el template devuelve un string todo grande) y hay que andar
   teniendo cuidado de escapar las cosas (y hay riesgos de seguridad de shell
   injection).
-
-Estas cosas quedan sujetas a necesitada y a definición del protocolo.
-Para mí lo ideal es que el protocolo de red sea igual que la consola del
-usuario, porque después de todo no va a ser más que eso, mandar comanditos.
-
-Por otro lado, el cliente de consola, por que no es el cliente web pero
-accedido via ssh usando un navegador de texto como w3m???
 
