@@ -84,7 +84,7 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
 
     handler_help = u"Manage firewall service"
 
-    _persistent_attrs = 'rules'
+    _persistent_attrs = ['rules']
 
     _restorable_defaults = dict(rules=list())
 
