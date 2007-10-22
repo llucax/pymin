@@ -626,6 +626,8 @@ class ParametersHandler(Handler):
         if not param in self.params:
             raise ParameterNotFoundError(param)
         self.params[param] = value
+        if hasattr(self, '_update'):
+            self._update = True
 
     @handler(u'Get a service parameter.')
     def get(self, param):
