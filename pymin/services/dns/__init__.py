@@ -109,13 +109,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
         self._config_writer_cfg_dir = config_dir
         self._update = False
         self._config_build_templates()
-        self._restore()
-        # FIXME self._update = True
-        #if not self._restore():
-        #r = self._restore()
-        #print r
-        #if not r:
-        #    self._update = True
+        InitdHandler.__init__(self)
         self.host = HostHandler(self)
         self.zone = ZoneHandler(self)
         self.mx = MailExchangeHandler(self)
@@ -132,7 +126,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
         delete_zones = list()
         for a_zone in self.zones.values():
             if a_zone._update or a_zone._add:
-                if not a_zone._add:
+                if not a_zone._add and self._service_running:
                     call(('rndc', 'freeze', a_zone.name))
                 vars = dict(
                     zone = a_zone,
@@ -143,7 +137,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                 self._write_single_config('zoneX.zone',
                                             self._zone_filename(a_zone), vars)
                 a_zone._update = False
-                if not a_zone._add:
+                if not a_zone._add and self._service_running:
                     call(('rndc', 'thaw', a_zone.name))
                 else :
                     self._update = True
@@ -165,7 +159,8 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
         if self._update:
             self._write_single_config('named.conf')
             self._update = False
-            self.reload()
+            return False # Do reload
+        return True # we don't need to reload
 
 
 if __name__ == '__main__':

@@ -101,7 +101,7 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
         self._service_restart = self._service_start
         self._service_reload = self._service_start
         self._config_build_templates()
-        self._restore()
+        ServiceHandler.__init__(self)
         self.rule = RuleHandler(self)
 
     def _get_config_vars(self, config_file):

@@ -4,8 +4,8 @@ from os import path
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
-from pymin.services.util import Restorable, ConfigWriter \
-                                ,TransactionalHandler, DictSubHandler, call
+from pymin.services.util import Restorable, ConfigWriter, ReloadHandler, \
+                                TransactionalHandler, DictSubHandler, call
 
 __ALL__ = ('PppHandler',)
 
@@ -32,6 +32,7 @@ class Connection(Sequence):
         self.username = username
         self.password = password
         self.type = type
+        self._running = False
         if type == 'OE':
             if not 'device' in kw:
                 raise ConnectionError('Bad arguments for type=OE')
@@ -70,7 +71,7 @@ class ConnectionHandler(DictSubHandler):
     _cont_subhandler_attr = 'conns'
     _cont_subhandler_class = Connection
 
-class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
+class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
 
     handler_help = u"Manage ppp service"
 
@@ -89,29 +90,69 @@ class PppHandler(Restorable, ConfigWriter, TransactionalHandler):
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
         self._restore()
+        for conn in self.conns.values():
+            if conn._running:
+                conn._running = False
+                self.start(conn.name)
         self.conn = ConnectionHandler(self)
 
-    @handler('Starts the service')
-    def start(self, name):
+    @handler(u'Start one or all the connections.')
+    def start(self, name=None):
+        names = [name]
+        if name is None:
+            names = self.conns.keys()
+        for name in names:
+            if name in self.conns:
+                if not self.conns[name]._running:
+                    call(('pon', name))
+                    self.conns[name]._running = True
+                    self._dump_attr('conns')
+            else:
+                raise ConnectionNotFoundError(name)
+
+    @handler(u'Stop one or all the connections.')
+    def stop(self, name=None):
+        names = [name]
+        if name is None:
+            names = self.conns.keys()
+        for name in names:
+            if name in self.conns:
+                if self.conns[name]._running:
+                    call(('poff', name))
+                    self.conns[name]._running = False
+                    self._dump_attr('conns')
+            else:
+                raise ConnectionNotFoundError(name)
+
+    @handler(u'Restart one or all the connections (even disconnected ones).')
+    def restart(self, name=None):
+        names = [name]
+        if name is None:
+            names = self.conns.keys()
+        for name in names:
+            self.stop(name)
+            self.start(name)
+
+    @handler(u'Restart only one or all the already running connections.')
+    def reload(self, name=None):
+        r"reload() -> None :: Reload the configuration of the service."
+        names = [name]
+        if name is None:
+            names = self.conns.keys()
+        for name in names:
+            if self.conns[name]._running:
+                self.stop(name)
+                self.start(name)
+
+    @handler(u'Tell if the service is running.')
+    def running(self, name=None):
+        r"reload() -> None :: Reload the configuration of the service."
+        if name is None:
+            return [c.name for c in self.conns.values() if c._running]
         if name in self.conns:
-            #call(('pon', name))
-            print ('pon', name)
+            return int(self.conns[name]._running)
         else:
             raise ConnectionNotFoundError(name)
-
-    @handler('Stops the service')
-    def stop(self, name):
-        if name in self.conns:
-            #call(('poff', name))
-            print ('poff', name)
-        else:
-            raise ConnectionNotFoundError(name)
-
-    @handler('Reloads the service')
-    def reload(self):
-        for conn in self.conns.values():
-            self.stop(conn.name)
-            self.start(conn.name)
 
     def _write_config(self):
         r"_write_config() -> None :: Generate all the configuration files."
