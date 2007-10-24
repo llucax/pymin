@@ -37,7 +37,7 @@ class PyminDaemon(eventloop.EventLoop):
     >>> PyminDaemon(Root(), ('', 9999)).run()
     """
 
-    def __init__(self, root, bind_addr=('', 9999)):
+    def __init__(self, root, bind_addr=('', 9999), timer=1):
         r"""Initialize the PyminDaemon object.
 
         See PyminDaemon class documentation for more info.
@@ -47,7 +47,7 @@ class PyminDaemon(eventloop.EventLoop):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(bind_addr)
         # Create EventLoop
-        eventloop.EventLoop.__init__(self, sock)
+        eventloop.EventLoop.__init__(self, sock, timer=timer)
         # Create Dispatcher
         #TODO root.pymin = PyminHandler()
         self.dispatcher = dispatcher.Dispatcher(root)
@@ -83,6 +83,10 @@ class PyminDaemon(eventloop.EventLoop):
         else:
             response += u'%d\n%s' % (len(result), result)
         self.file.sendto(response.encode('utf-8'), addr)
+
+    def handle_timer(self):
+        r"handle_timer() -> None :: Call handle_timer() on handlers."
+        self.dispatcher.root.handle_timer()
 
     def run(self):
         r"run() -> None :: Run the event loop (shortcut to loop())"
