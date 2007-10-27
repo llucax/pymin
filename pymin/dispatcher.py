@@ -216,6 +216,17 @@ class Handler:
             raise HelpNotFoundError(command)
         return handler.handler_help
 
+    def handle_timer(self):
+        r"""handle_timer() -> None :: Do periodic tasks.
+
+        By default we do nothing but calling handle_timer() on subhandlers.
+        """
+        for a in dir(self):
+            if a == 'parent': continue # Skip parents in SubHandlers
+            h = getattr(self, a)
+            if isinstance(h, Handler):
+                h.handle_timer()
+
 def parse_command(command):
     r"""parse_command(command) -> (args, kwargs) :: Parse a command.
 

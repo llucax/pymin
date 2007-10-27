@@ -110,9 +110,6 @@ class Address(Sequence):
         self.ip = ip
         self.netmask = netmask
         self.broadcast = broadcast
-    def update(self, netmask=None, broadcast=None):
-        if netmask is not None: self.netmask = netmask
-        if broadcast is not None: self.broadcast = broadcast
     def as_tuple(self):
         return (self.ip, self.netmask, self.broadcast)
 
@@ -226,9 +223,26 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
                  ), shell=True)
 
 
+    def handle_timer(self):
+        self.refresh_devices()
+
+
+    def refresh_devices(self):
+        devices = get_network_devices()
+        #add not registered devices
+        for k,v in devices.items():
+            if k not in self.devices:
+                self.devices[k] = Device(k,v)
+        #delete dead devices
+        for k in self.devices.keys():
+            if k not in devices:
+                del self.devices[k]
+
+
+
 if __name__ == '__main__':
 
-    ip = IpHandler()
+    ip = IpHanlder()
     print '----------------------'
     ip.hop.add('201.21.32.53','eth0')
     ip.hop.add('205.65.65.25','eth1')

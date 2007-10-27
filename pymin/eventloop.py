@@ -7,6 +7,8 @@ Please see EventLoop class documentation for more info.
 """
 
 import select
+import errno
+import signal
 from select import POLLIN, POLLPRI, POLLERR
 
 __ALL__ = ('EventLoop', 'LoopInterruptedError')
@@ -35,8 +37,16 @@ class LoopInterruptedError(RuntimeError):
         r"str(obj) -> String representation."
         return 'Loop interrupted: %s' % self.select_error
 
+# Flag to know if a timer was expired
+timeout = False
+
+# Alarm Signal handler
+def alarm_handler(signum, stack_frame):
+    global timeout
+    timeout = True
+
 class EventLoop:
-    r"""EventLoop(file[, handler]) -> EventLoop instance
+    r"""EventLoop(file[, timer[, handler[, timer_handler]]]) -> EventLoop.
 
     This class implements a simple event loop based on select module.
     It "listens" to activity a single 'file' object (a file, a pipe,
@@ -44,9 +54,12 @@ class EventLoop:
     function (or the handle() method if you prefer subclassing) every
     time the file is ready for reading (or has an error).
 
+    If a 'timer' is supplied, then the timer_handler() function object
+    (or the handle_timer() method) is called every 'timer' seconds.
+
     This is a really simple example of usage using a hanlder callable:
 
-    >>> import os 
+    >>> import os
     >>> def handle(event_loop):
             data = os.read(event_loop.fileno, 100)
             os.write(1, 'Received message: %r\n' % data)
@@ -66,14 +79,16 @@ class EventLoop:
     >>>             self.stop()
     >>>         else:
     >>>             os.write(1, 'Received message: %r\n' % data)
-    >>> p = Test(0)
+    >>>     def handle_timer(self):
+    >>>         print time.strftime('%c')
+    >>> p = Test(0, timer=5)
     >>> p.loop()
 
     This example loops until the user enters a single "q", when stop()
     is called and the event loop is exited.
     """
 
-    def __init__(self, file, handler=None):
+    def __init__(self, file, handler=None, timer=None, timer_handler=None):
         r"""Initialize the EventLoop object.
 
         See EventLoop class documentation for more info.
@@ -81,7 +96,9 @@ class EventLoop:
         self.poll = select.poll()
         self._stop = False
         self.__register(file)
+        self.timer = timer
         self.handler = handler
+        self.timer_handler = timer_handler
 
     def __register(self, file):
         r"__register(file) -> None :: Register a new file for polling."
@@ -125,26 +142,45 @@ class EventLoop:
         Wait for events and handle then when they arrive. If once is True,
         then only 1 event is processed and then this method returns.
         """
+        # Flag modified by the signal handler
+        global timeout
+        # If we use a timer, we set up the signal
+        if self.timer is not None:
+            signal.signal(signal.SIGALRM, alarm_handler)
+            self.handle_timer()
+            signal.alarm(self.timer)
         while True:
             try:
                 res = self.poll.poll()
             except select.error, e:
-                raise LoopInterruptedError(e)
-            if self.handler is not None:
-                self.handler(self)
+                # The error is not an interrupt caused by the alarm, then raise
+                if e.args[0] != errno.EINTR or not timeout:
+                    raise LoopInterruptedError(e)
+            # There was a timeout, so execute the timer handler
+            if timeout:
+                timeout = False
+                self.handle_timer()
+                signal.alarm(self.timer)
+            # Not a timeout, execute the regular handler
             else:
                 self.handle()
+            # Look if we have to stop
             if self._stop or once:
                 self._stop = False
                 break
 
     def handle(self):
         r"handle() -> None :: Abstract method to be overriden to handle events."
-        raise NotImplementedError
+        self.handler(self)
+
+    def handle_timer(self):
+        r"handle() -> None :: Abstract method to be overriden to handle events."
+        self.timer_handler(self)
 
 if __name__ == '__main__':
 
     import os
+    import time
 
     def handle(event_loop):
         data = os.read(event_loop.fileno, 100)
@@ -163,8 +199,10 @@ if __name__ == '__main__':
                 self.stop()
             else:
                 os.write(1, 'Received message: %r\n' % data)
+        def handle_timer(self):
+            print time.strftime('%c')
 
-    p = Test(0)
+    p = Test(0, timer=5)
 
     os.write(1, 'Say a lot of things, then press write just "q" to stop: ')
     p.loop()
