@@ -154,18 +154,26 @@ class ContainerNotFoundError(ContainerError):
 
 
 def get_network_devices():
-    p = subprocess.Popen(('ip', 'link', 'list'), stdout=subprocess.PIPE,
+    p = subprocess.Popen(('ip', '-o', 'link'), stdout=subprocess.PIPE,
                                                     close_fds=True)
     string = p.stdout.read()
     p.wait()
     d = dict()
-    i = string.find('eth')
-    while i != -1:
-        eth = string[i:i+4]
-        m = string.find('link/ether', i+4)
-        mac = string[ m+11 : m+11+17]
-        d[eth] = mac
-        i = string.find('eth', m+11+17)
+    devices = string.splitlines()
+    for dev in devices:
+        mac = ''
+        if dev.find('link/ether') != -1:
+            i = dev.find('link/ether')
+            mac = dev[i+11 : i+11+17]
+            i = dev.find(':',2)
+            name = dev[3: i]
+            d[name] = mac
+        elif dev.find('link/ppp') != -1:
+            i = dev.find('link/ppp')
+            mac =  '00:00:00:00:00:00'
+            i = dev.find(':',2)
+            name = dev[3 : i]
+            d[name] = mac
     return d
 
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -294,9 +302,6 @@ class Restorable(Persistent):
         r"_restore() -> bool :: Restore persistent data or create a default."
         try:
             self._load()
-            # TODO tener en cuenta servicios que hay que levantar y los que no
-            if hasattr(self, 'commit'): # TODO deberia ser reload y/o algo para comandos
-                self.commit()
             return True
         except IOError:
             for (k, v) in self._restorable_defaults.items():
@@ -308,8 +313,6 @@ class Restorable(Persistent):
             self._dump()
             if hasattr(self, '_write_config'):
                 self._write_config()
-            if hasattr(self, 'reload'):
-                self.reload()
             return False
 
 class ConfigWriter:
@@ -437,7 +440,7 @@ class ConfigWriter:
             self._write_single_config(t)
 
 
-class ServiceHandler(Handler):
+class ServiceHandler(Handler, Restorable):
     r"""ServiceHandler([start[, stop[, restart[, reload]]]]) -> ServiceHandler.
 
     This is a helper class to inherit from to automatically handle services
@@ -468,26 +471,63 @@ class ServiceHandler(Handler):
                                                     reload=reload).items():
             if action is not None:
                 setattr(self, '_service_%s' % name, action)
+        self._persistent_attrs = list(self._persistent_attrs)
+        self._persistent_attrs.append('_service_running')
+        if '_service_running' not in self._restorable_defaults:
+            self._restorable_defaults['_service_running'] = False
+        self._restore()
+        if self._service_running:
+            self._service_running = False
+            self.start()
 
     @handler(u'Start the service.')
     def start(self):
         r"start() -> None :: Start the service."
-        call(self._service_start)
+        if not self._service_running:
+            if callable(self._service_start):
+                self._service_start()
+            else:
+                call(self._service_start)
+            self._service_running = True
+            self._dump_attr('_service_running')
 
     @handler(u'Stop the service.')
     def stop(self):
         r"stop() -> None :: Stop the service."
-        call(self._service_stop)
+        if self._service_running:
+            if callable(self._service_stop):
+                self._service_stop()
+            else:
+                call(self._service_stop)
+            self._service_running = False
+            self._dump_attr('_service_running')
 
     @handler(u'Restart the service.')
     def restart(self):
         r"restart() -> None :: Restart the service."
-        call(self._service_restart)
+        if callable(self._service_restart):
+            self._service_restart()
+        else:
+            call(self._service_restart)
+        self._service_running = True
+        self._dump_attr('_service_running')
 
     @handler(u'Reload the service config (without restarting, if possible).')
     def reload(self):
         r"reload() -> None :: Reload the configuration of the service."
-        call(self._service_reload)
+        if self._service_running:
+            if callable(self._service_reload):
+                self._service_reload()
+            else:
+                call(self._service_reload)
+
+    @handler(u'Tell if the service is running.')
+    def running(self):
+        r"reload() -> None :: Reload the configuration of the service."
+        if self._service_running:
+            return 1
+        else:
+            return 0
 
 class RestartHandler(Handler):
     r"""RestartHandler() -> RestartHandler :: Provides generic restart command.
@@ -513,9 +553,11 @@ class ReloadHandler(Handler):
     @handler(u'Reload the service config (alias to restart).')
     def reload(self):
         r"reload() -> None :: Reload the configuration of the service."
-        self.restart()
+        if hasattr(self, '_service_running') and self._service_running:
+            self.restart()
 
-class InitdHandler(Handler):
+class InitdHandler(ServiceHandler):
+    # TODO update docs, declarative style is depracated
     r"""InitdHandler([initd_name[, initd_dir]]) -> InitdHandler.
 
     This is a helper class to inherit from to automatically handle services
@@ -544,26 +586,11 @@ class InitdHandler(Handler):
             self._initd_name = initd_name
         if initd_dir is not None:
             self._initd_dir = initd_dir
-
-    @handler(u'Start the service.')
-    def start(self):
-        r"start() -> None :: Start the service."
-        call((path.join(self._initd_dir, self._initd_name), 'start'))
-
-    @handler(u'Stop the service.')
-    def stop(self):
-        r"stop() -> None :: Stop the service."
-        call((path.join(self._initd_dir, self._initd_name), 'stop'))
-
-    @handler(u'Restart the service.')
-    def restart(self):
-        r"restart() -> None :: Restart the service."
-        call((path.join(self._initd_dir, self._initd_name), 'restart'))
-
-    @handler(u'Reload the service config (without restarting, if possible).')
-    def reload(self):
-        r"reload() -> None :: Reload the configuration of the service."
-        call((path.join(self._initd_dir, self._initd_name), 'reload'))
+        actions = dict()
+        for action in ('start', 'stop', 'restart', 'reload'):
+            actions[action] = (path.join(self._initd_dir, self._initd_name),
+                                action)
+        ServiceHandler.__init__(self, **actions)
 
 class TransactionalHandler(Handler):
     r"""Handle command transactions providing a commit and rollback commands.
@@ -586,9 +613,10 @@ class TransactionalHandler(Handler):
         r"commit() -> None :: Commit the changes and reload the service."
         if hasattr(self, '_dump'):
             self._dump()
+        unchanged = False
         if hasattr(self, '_write_config'):
-            self._write_config()
-        if hasattr(self, 'reload'):
+            unchanged = self._write_config()
+        if not unchanged and hasattr(self, 'reload'):
             self.reload()
 
     @handler(u'Discard all the uncommited changes.')
@@ -627,6 +655,8 @@ class ParametersHandler(Handler):
         if not param in self.params:
             raise ParameterNotFoundError(param)
         self.params[param] = value
+        if hasattr(self, '_update'):
+            self._update = True
 
     @handler(u'Get a service parameter.')
     def get(self, param):
