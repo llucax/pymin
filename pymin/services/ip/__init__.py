@@ -110,9 +110,6 @@ class Address(Sequence):
         self.ip = ip
         self.netmask = netmask
         self.broadcast = broadcast
-    def update(self, netmask=None, broadcast=None):
-        if netmask is not None: self.netmask = netmask
-        if broadcast is not None: self.broadcast = broadcast
     def as_tuple(self):
         return (self.ip, self.netmask, self.broadcast)
 
