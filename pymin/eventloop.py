@@ -147,6 +147,7 @@ class EventLoop:
         # If we use a timer, we set up the signal
         if self.timer is not None:
             signal.signal(signal.SIGALRM, alarm_handler)
+            self.handle_timer()
             signal.alarm(self.timer)
         while True:
             try:
