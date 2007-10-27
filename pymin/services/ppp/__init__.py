@@ -1,6 +1,7 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 import os
+import subprocess
 from os import path
 from signal import SIGTERM
 
@@ -161,6 +162,16 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
             return int(self.conns[name]._running)
         else:
             raise ConnectionNotFoundError(name)
+
+    def handle_timer(self):
+        for c in self.conns.values():
+            p = subprocess.Popen(('pgrep', '-f', 'pppd call ' + c.name),
+                                    stdout=subprocess.PIPE)
+            pid = p.communicate()[0]
+            if p.wait() == 0 and len(pid) > 0:
+                c._running = True
+            else:
+                c._running = False
 
     def _write_config(self):
         r"_write_config() -> None :: Generate all the configuration files."
