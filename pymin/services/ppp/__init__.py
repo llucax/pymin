@@ -197,6 +197,7 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
 
 
 if __name__ == '__main__':
+
     p = PppHandler()
     p.conn.add('ppp_c','nico','nico',type='PPP',device='tty0')
     p.conn.add('pppoe_c','fede','fede',type='OE',device='tty1')

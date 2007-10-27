@@ -12,8 +12,8 @@ except ImportError:
 from pymin.dispatcher import Handler, handler, HandlerError, \
                                 CommandNotFoundError
 
-#DEBUG = False
-DEBUG = True
+DEBUG = False
+#DEBUG = True
 
 __ALL__ = ('Error', 'ReturnNot0Error', 'ExecutionError', 'ItemError',
             'ItemAlreadyExistsError', 'ItemNotFoundError', 'ContainerError',
@@ -154,18 +154,26 @@ class ContainerNotFoundError(ContainerError):
 
 
 def get_network_devices():
-    p = subprocess.Popen(('ip', 'link', 'list'), stdout=subprocess.PIPE,
+    p = subprocess.Popen(('ip', '-o', 'link'), stdout=subprocess.PIPE,
                                                     close_fds=True)
     string = p.stdout.read()
     p.wait()
     d = dict()
-    i = string.find('eth')
-    while i != -1:
-        eth = string[i:i+4]
-        m = string.find('link/ether', i+4)
-        mac = string[ m+11 : m+11+17]
-        d[eth] = mac
-        i = string.find('eth', m+11+17)
+    devices = string.splitlines()
+    for dev in devices:
+        mac = ''
+        if dev.find('link/ether') != -1:
+            i = dev.find('link/ether')
+            mac = dev[i+11 : i+11+17]
+            i = dev.find(':',2)
+            name = dev[3: i]
+            d[name] = mac
+        elif dev.find('link/ppp') != -1:
+            i = dev.find('link/ppp')
+            mac =  '00:00:00:00:00:00'
+            i = dev.find(':',2)
+            name = dev[3 : i]
+            d[name] = mac
     return d
 
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -177,6 +185,7 @@ def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         print 'Executing command:', command
         return
     try:
+        print 'Executing command:', command
         r = subprocess.call(command, stdin=stdin, stdout=stdout, stderr=stderr,
                                 universal_newlines=universal_newlines,
                                 close_fds=close_fds, **kw)

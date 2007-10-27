@@ -10,31 +10,45 @@ pickle_path = join(base_path, 'pickle')
 config_path = join(base_path, 'config')
 
 class Root(Handler):
+
+    firewall = FirewallHandler(
+        pickle_dir = join(pickle_path, 'firewall'),
+        config_dir = '/tmp')
+
+    nat = NatHandler(pickle_dir = join(pickle_path, 'nat'))
+
+    ppp = PppHandler(
+        pickle_dir = join(pickle_path, 'ppp'),
+        config_dir = {
+            'pap-secrets':  '/etc/ppp',
+            'chap-secrets': '/etc/ppp',
+            'options.X':    '/etc/ppp',
+            'nameX':        '/etc/ppp/peers',
+        })
+
     ip = IpHandler(
         pickle_dir = join(pickle_path, 'ip'),
         config_dir = join(config_path, 'ip'))
-    firewall = FirewallHandler(
-        pickle_dir = join(pickle_path, 'firewall'),
-        config_dir = join(config_path, 'firewall'))
-    nat = NatHandler(pickle_dir = join(pickle_path, 'nat'))
+
     dns = DnsHandler(
         pickle_dir = join(pickle_path, 'dns'),
         config_dir = {
-            'named.conf': join(config_path, 'dns'),
-            'zoneX.zone': join(config_path, 'dns', 'zones'),
+            'named.conf': '/etc',
+            'zoneX.zone': '/var/lib/named',
         })
+
     dhcp = DhcpHandler(
         pickle_dir = join(pickle_path, 'dhcp'),
-        config_dir = join(config_path, 'dhcp'))
-    ppp = PppHandler(
-        pickle_dir = join(pickle_path, 'ppp'),
-        config_dir = join(config_path, 'ppp'))
-    vrrp = VrrpHandler(
-        pickle_dir = join(pickle_path, 'vrrp'),
-        config_dir = join(config_path, 'vrrp'))
+        config_dir = '/etc')
+
     proxy = ProxyHandler(
         pickle_dir = join(pickle_path, 'proxy'),
-        config_dir = join(config_path, 'proxy'))
+        config_dir = '/etc/squid')
+
+    vrrp = VrrpHandler(
+        pickle_dir = join(pickle_path, 'vrrp'),
+        config_dir = join(config_path, 'vrrp'),
+        pid_dir    = '/var/run')
 
 bind_addr = \
 (
