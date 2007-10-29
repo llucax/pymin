@@ -592,6 +592,15 @@ class InitdHandler(ServiceHandler):
                                 action)
         ServiceHandler.__init__(self, **actions)
 
+    def handle_timer(self):
+        p = subprocess.Popen(('pgrep', '-f', self._initd_name),
+                                stdout=subprocess.PIPE)
+        pid = p.communicate()[0]
+        if p.wait() == 0 and len(pid) > 0:
+            c._service_running = True
+        else:
+            c._service_running = False
+
 class TransactionalHandler(Handler):
     r"""Handle command transactions providing a commit and rollback commands.
 
