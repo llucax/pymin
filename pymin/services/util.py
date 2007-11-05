@@ -11,6 +11,7 @@ except ImportError:
 
 from pymin.dispatcher import Handler, handler, HandlerError, \
                                 CommandNotFoundError
+from pymin.seqtools import Sequence
 
 DEBUG = False
 #DEBUG = True
@@ -21,7 +22,7 @@ __ALL__ = ('Error', 'ReturnNot0Error', 'ExecutionError', 'ItemError',
             'Persistent', 'Restorable', 'ConfigWriter', 'ServiceHandler',
             'RestartHandler', 'ReloadHandler', 'InitdHandler', 'SubHandler',
             'DictSubHandler', 'ListSubHandler', 'ComposedSubHandler',
-            'ListComposedSubHandler', 'DictComposedSubHandler')
+            'ListComposedSubHandler', 'DictComposedSubHandler', 'Device','Address')
 
 class Error(HandlerError):
     r"""
@@ -152,6 +153,30 @@ class ContainerNotFoundError(ContainerError):
         r"Initialize the object. See class documentation for more info."
         self.message = u'Container not found: "%s"' % key
 
+class Address(Sequence):
+    def __init__(self, ip, netmask, broadcast=None, peer=None):
+        self.ip = ip
+        self.netmask = netmask
+        self.broadcast = broadcast
+        self.peer = peer
+    def update(self, netmask=None, broadcast=None):
+        if netmask is not None: self.netmask = netmask
+        if broadcast is not None: self.broadcast = broadcast
+    def as_tuple(self):
+        return (self.ip, self.netmask, self.broadcast, self.peer)
+
+
+class Device(Sequence):
+    def __init__(self, name, mac, ppp):
+        self.name = name
+        self.mac = mac
+        self.ppp = ppp
+        self.addrs = dict()
+        self.routes = list()
+    def as_tuple(self):
+        return (self.name, self.mac, self.addrs)
+
+
 
 def get_network_devices():
     p = subprocess.Popen(('ip', '-o', 'link'), stdout=subprocess.PIPE,
@@ -165,16 +190,38 @@ def get_network_devices():
         if dev.find('link/ether') != -1:
             i = dev.find('link/ether')
             mac = dev[i+11 : i+11+17]
-            i = dev.find(':',2)
-            name = dev[3: i]
-            d[name] = mac
+            i = dev.find(':')
+            j = dev.find(':', i+1)
+            name = dev[i+2: j]
+            d[name] = Device(name,mac,False)
         elif dev.find('link/ppp') != -1:
             i = dev.find('link/ppp')
             mac =  '00:00:00:00:00:00'
-            i = dev.find(':',2)
-            name = dev[3 : i]
-            d[name] = mac
+            i = dev.find(':')
+            j = dev.find(':', i+1)
+            name = dev[i+2 : j]
+            d[name] = Device(name,mac,True)
+            #since the device is ppp, get the address and peer
+            try:
+                p = subprocess.Popen(('ip', '-o', 'addr', 'show', name), stdout=subprocess.PIPE,
+                                                        close_fds=True, stderr=subprocess.PIPE)
+                string = p.stdout.read()
+                p.wait()
+                addrs = string.splitlines()
+                inet = addrs[1].find('inet')
+                peer = addrs[1].find('peer')
+                bar = addrs[1].find('/')
+                from_addr = addrs[1][inet+5 : peer-1]
+                to_addr = addrs[1][peer+5 : bar]
+                d[name].addrs[from_addr] = Address(from_addr,24, peer=to_addr)
+            except IndexError:
+                pass
+            
     return d
+	
+def get_peers():
+    p = subprocess.Popen(('ip', '-o', 'addr'), stdout=subprocess.PIPE,
+                                                    close_fds=True)
 
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, close_fds=True, universal_newlines=True,
@@ -1049,6 +1096,8 @@ class DictComposedSubHandler(ComposedSubHandler):
 
 if __name__ == '__main__':
 
+    import sys
+
     # Execution tests
     class STestHandler1(ServiceHandler):
         _service_start = ('service', 'start')
@@ -1150,4 +1199,6 @@ if __name__ == '__main__':
     os.unlink('templates/config')
     os.rmdir('templates')
     print
+
+    print get_network_devices()
 
