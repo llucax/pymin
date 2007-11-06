@@ -32,16 +32,16 @@ class ClassAlreadyExistsError(ClassError):
 
 class Class(Sequence):
 
-    def __init__(self, id, rate=None):
-        self.id = id
+    def __init__(self, cid, rate=None):
+        self.cid = cid
         self.rate = rate
         self.hosts = list()
 
     def as_tuple(self):
-        return (self.id, self.rate)
+        return (self.cid, self.rate)
 
     def __cmp__(self, other):
-        if self.id == other.id
+        if self.cid == other.cid:
             return 0
         return cmp(id(self), id(other))
 
@@ -52,25 +52,25 @@ class ClassHandler(Handler):
         self.parent = parent
 
     @handler('Adds a class : add <id> <device> <rate>')
-    def add(self, id, dev, rate):
+    def add(self, cid, dev, rate):
         if not dev in self.parent.devices:
             raise DeviceNotFoundError(device)
-        c = Class(id, dev, rate)
+        c = Class(cid, dev, rate)
         try:
             self.parent.classes.index(c)
-            raise ClassAlreadyExistsError(id  + '->' + dev)
+            raise ClassAlreadyExistsError(cid  + '->' + dev)
         except ValueError:
             self.parent.classes.append(c)
 
     @handler(u'Deletes a class : delete <id> <device>')
-    def delete(self, id, dev):
+    def delete(self, cid, dev):
         if not dev in self.parent.devices:
             raise DeviceNotFoundError(device)
-        c = Class(id, dev)
+        c = Class(cid, dev)
         try:
             self.parent.classes.remove(c)
         except ValueError:
-            raise ClassNotFoundError(id + '->' + dev)
+            raise ClassNotFoundError(cid + '->' + dev)
 
     @handler(u'Lists classes : list <dev>')
     def list(self, device):
@@ -160,7 +160,7 @@ class QoSHandler(Restorable, ConfigWriter, TransactionalHandler):
     _restorable_defaults = dict(
                             devices=dict((dev, Device(dev, mac))
                                 for (dev, mac) in get_network_devices().items()),
-                            classes = list()
+                            classes = list(),
                             hosts = list()
                             )
 
@@ -182,22 +182,22 @@ class QoSHandler(Restorable, ConfigWriter, TransactionalHandler):
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            call(self._render_config('devices', dict(dev=device.name, action='del')), shell=True)
-            call(self._render_config('devices', dict(dev=device.name, action='add')), shell=True)
+            call(self._render_config('device', dict(dev=device.name, action='del')), shell=True)
+            call(self._render_config('device', dict(dev=device.name, action='add')), shell=True)
             for qosclass in device.classes:
                 call(self._render_config('class_add', dict(
                         dev = device.name,
-                        id = qosclass.id,
+                        cid = qosclass.cid,
                         rate = qosclass.rate
                     )
                 ), shell=True)
-            for host in classes.hosts:
-                call(self._render_config('host_add', dict(
-                        dev = device.name,
-                        ip = host.ip,
-                        id = qosclass.id
-                    )
-                ), shell=True)
+                for host in qosclass.hosts:
+                    call(self._render_config('host_add', dict(
+                            dev = device.name,
+                            ip = host.ip,
+                            cid = qosclass.cid
+                        )
+                    ), shell=True)
 
     def handle_timer(self):
         self.refresh_devices()
