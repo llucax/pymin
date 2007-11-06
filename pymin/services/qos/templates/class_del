@@ -1,0 +1,1 @@
+tc class del dev ${dev} classid 1:${id}

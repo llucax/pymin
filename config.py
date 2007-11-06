@@ -35,6 +35,9 @@ class Root(Handler):
     proxy = ProxyHandler(
         pickle_dir = join(pickle_path, 'proxy'),
         config_dir = join(config_path, 'proxy'))
+    qos = QoSHandler(
+	pickle_dir = join(pickle_path, 'qos'),
+	config_dir = join(config_path, 'qos'))
 
 bind_addr = \
 (
