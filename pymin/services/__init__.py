@@ -8,3 +8,4 @@ from pymin.services.ip import IpHandler
 from pymin.services.proxy import ProxyHandler
 from pymin.services.vrrp import VrrpHandler
 from pymin.services.ppp import PppHandler
+from pymin.services.qos import QoSHandler
