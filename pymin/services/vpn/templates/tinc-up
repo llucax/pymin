@@ -1,0 +1,1 @@
+ifconfig $INTERFACE ${vpn.vpn_src_ip} netmask ${vpn.vpn_src_mask}

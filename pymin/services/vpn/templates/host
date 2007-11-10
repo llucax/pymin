@@ -1,0 +1,3 @@
+Address = ${host.ip}
+Subnet = ${host.src_net}
+${host.pub_key}
