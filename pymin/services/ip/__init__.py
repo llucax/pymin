@@ -177,35 +177,52 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
-            call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
+            try:
+                call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+            except ExecutionError, e:
+                print e
+            try:
+                call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
+            except ExecutionError, e:
+                print e
             for address in device.addrs.values():
                 broadcast = address.broadcast
                 if broadcast is None:
                     broadcast = '+'
-                call(self._render_config('ip_add', dict(
+                try:
+                    call(self._render_config('ip_add', dict(
                         dev = device.name,
                         addr = address.ip,
                         netmask = address.netmask,
                         peer = address.peer,
                         broadcast = broadcast,
-                    )
-                ), shell=True)
+                        )
+                    ), shell=True)
+                except ExecutionError, e:
+                      print e
             for route in device.routes:
-                call(self._render_config('route_add', dict(
-                        dev = device.name,
-                        net_addr = route.net_addr,
-                        prefix = route.prefix,
-                        gateway = route.gateway,
-                    )
-                ), shell=True)
-
+                try:
+                    call(self._render_config('route_add', dict(
+                            dev = device.name,
+                            net_addr = route.net_addr,
+                            prefix = route.prefix,
+                            gateway = route.gateway,
+                        )
+                     ), shell=True)
+                except ExecutionError, e:
+                    print e
         if self.hops:
-            call('ip route del default', shell=True)
-            call(self._render_config('hop', dict(
-                        hops = self.hops,
-                    )
-                 ), shell=True)
+            try:
+                call('ip route del default', shell=True)
+            except ExecutionError, e:
+                print e
+            try:
+                call(self._render_config('hop', dict(
+                    hops = self.hops,
+                        )
+                ), shell=True)
+            except ExecutionError, e:
+                print e
 
 
     def handle_timer(self):
