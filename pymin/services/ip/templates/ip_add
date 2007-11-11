@@ -1,1 +1,5 @@
+%if peer is None:
 ip addr add dev ${dev} ${addr}/${netmask} broadcast ${broadcast}
+%else:
+ip addr add dev ${dev} ${addr} peer ${peer}
+%endif

@@ -121,7 +121,6 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
         for name in names:
             if name in self.conns:
                 if self.conns[name]._running:
-                    call(('poff', name))
                     if path.exists('/var/run/ppp-' + name + '.pid'):
                         pid = file('/var/run/ppp-' + name + '.pid').readline()
                         try:

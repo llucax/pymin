@@ -8,7 +8,7 @@ from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, SubHandler, call, \
                                 get_network_devices, ListComposedSubHandler, \
-                                DictComposedSubHandler
+                                DictComposedSubHandler, Device, Address, ExecutionError
 
 __ALL__ = ('IpHandler',)
 
@@ -105,13 +105,6 @@ class RouteHandler(ListComposedSubHandler):
     _comp_subhandler_attr = 'routes'
     _comp_subhandler_class = Route
 
-class Address(Sequence):
-    def __init__(self, ip, netmask, broadcast=None):
-        self.ip = ip
-        self.netmask = netmask
-        self.broadcast = broadcast
-    def as_tuple(self):
-        return (self.ip, self.netmask, self.broadcast)
 
 class AddressHandler(DictComposedSubHandler):
     handler_help = u"Manage IP addresses"
@@ -119,14 +112,6 @@ class AddressHandler(DictComposedSubHandler):
     _comp_subhandler_attr = 'addrs'
     _comp_subhandler_class = Address
 
-class Device(Sequence):
-    def __init__(self, name, mac):
-        self.name = name
-        self.mac = mac
-        self.addrs = dict()
-        self.routes = list()
-    def as_tuple(self):
-        return (self.name, self.mac)
 
 class DeviceHandler(SubHandler):
 
@@ -169,8 +154,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
     _persistent_attrs = ('devices','hops')
 
     _restorable_defaults = dict(
-                            devices=dict((dev, Device(dev, mac))
-                                for (dev, mac) in get_network_devices().items()),
+                            devices=get_network_devices(),
                             hops = list()
                             )
 
@@ -203,6 +187,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
                         dev = device.name,
                         addr = address.ip,
                         netmask = address.netmask,
+                        peer = address.peer,
                         broadcast = broadcast,
                     )
                 ), shell=True)
@@ -232,7 +217,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         #add not registered devices
         for k,v in devices.items():
             if k not in self.devices:
-                self.devices[k] = Device(k,v)
+                self.devices[k] = v
         #delete dead devices
         for k in self.devices.keys():
             if k not in devices:
