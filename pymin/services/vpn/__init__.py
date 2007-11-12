@@ -101,7 +101,7 @@ class VpnHandler(Restorable, ConfigWriter,
     @handler('usage: start <vpn_name>')
     def start(self, vpn_src):
         if vpn_src in self.vpns:
-            call(('tincd','--net=',vpn_src))
+            call(('tincd','--net='+ vpn_src))
 
     @handler('usage: stop <vpn_name>')
     def stop(self, vpn_src):
@@ -165,7 +165,6 @@ class VpnHandler(Restorable, ConfigWriter,
 
 if __name__ == '__main__':
     v = VpnHandler()
-    v.add('test','127.0.0.1','192.168.0.1','255.255.255.0')
-    #v.host.add('test', 'sarasa' ,'127.0.0.1', '205.25.36.36','kjdhfkbdskljvkjblkbjeslkjbvkljbselvslberjhbvslbevlhb')
-    v.delete('test')
+    v.add('prueba','sarasa','192.168.0.188','255.255.255.0')
+    v.host.add('prueba', 'azazel' ,'192.168.0.77', '192.168.0.0','kjdhfkbdskljvkjblkbjeslkjbvkljbselvslberjhbvslbevlhb')
     v.commit()
