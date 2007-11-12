@@ -47,16 +47,19 @@ class Root(Handler):
 
     proxy = ProxyHandler(
         pickle_dir = join(pickle_path, 'proxy'),
-        config_dir = join(config_path, 'proxy'))
+        config_dir = '/etc/squid')
 
     vrrp = VrrpHandler(
         pickle_dir = join(pickle_path, 'vrrp'),
         config_dir = join(config_path, 'vrrp'),
         pid_dir    = '/var/run')
-
-    qos = QoSHandler(
-	pickle_dir = join(pickle_path, 'qos'),
-	config_dir = join(config_path, 'qos'))
+    
+    vpn = VpnHandler(
+        pickle_dir = join(pickle_path, 'vpn'),
+        config_dir = '/etc/tinc')
+    #qos = QoSHandler(
+    #	pickle_dir = join(pickle_path, 'qos'),
+    #	config_dir = join(config_path, 'qos'))
 
 bind_addr = \
 (
