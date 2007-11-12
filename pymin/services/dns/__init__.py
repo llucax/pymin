@@ -162,6 +162,18 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
             return False # Do reload
         return True # we don't need to reload
 
+    # HACK!!!!
+    def handle_timer(self):
+        import subprocess
+        p = subprocess.Popen(('pgrep', '-f', '/usr/sbin/named'),
+                                stdout=subprocess.PIPE)
+        pid = p.communicate()[0]
+        if p.returncode == 0 and len(pid) > 0:
+            self._service_running = True
+        else:
+            self._service_running = False
+
+
 
 if __name__ == '__main__':
 
