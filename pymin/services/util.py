@@ -216,9 +216,8 @@ def get_network_devices():
                 d[name].addrs[from_addr] = Address(from_addr,24, peer=to_addr)
             except IndexError:
                 pass
-            
     return d
-	
+
 def get_peers():
     p = subprocess.Popen(('ip', '-o', 'addr'), stdout=subprocess.PIPE,
                                                     close_fds=True)
