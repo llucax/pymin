@@ -9,3 +9,4 @@ from pymin.services.proxy import ProxyHandler
 from pymin.services.vrrp import VrrpHandler
 from pymin.services.ppp import PppHandler
 from pymin.services.qos import QoSHandler
+from pymin.services.vpn import VpnHandler

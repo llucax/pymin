@@ -216,9 +216,8 @@ def get_network_devices():
                 d[name].addrs[from_addr] = Address(from_addr,24, peer=to_addr)
             except IndexError:
                 pass
-            
     return d
-	
+
 def get_peers():
     p = subprocess.Popen(('ip', '-o', 'addr'), stdout=subprocess.PIPE,
                                                     close_fds=True)
@@ -643,10 +642,10 @@ class InitdHandler(ServiceHandler):
         p = subprocess.Popen(('pgrep', '-f', self._initd_name),
                                 stdout=subprocess.PIPE)
         pid = p.communicate()[0]
-        if p.wait() == 0 and len(pid) > 0:
-            c._service_running = True
+        if p.returncode == 0 and len(pid) > 0:
+            self._service_running = True
         else:
-            c._service_running = False
+            self._service_running = False
 
 class TransactionalHandler(Handler):
     r"""Handle command transactions providing a commit and rollback commands.
