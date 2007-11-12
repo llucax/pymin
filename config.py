@@ -26,6 +26,10 @@ class Root(Handler):
             'nameX':        '/etc/ppp/peers',
         })
 
+    vpn = VpnHandler(
+         pickle_dir = join(pickle_path, 'vpn'),
+         config_dir = join(config_path, 'vpn'))
+
     ip = IpHandler(
         pickle_dir = join(pickle_path, 'ip'),
         config_dir = join(config_path, 'ip'))
