@@ -176,8 +176,9 @@ if __name__ == '__main__':
     procman.call('test', ('sleep', '5'), notify)
     procman.start('test-service')
 
+    print "Esperando...", [pi.name for pi in procman.namemap.values()]
     while procman.pidmap:
-        time.sleep(1)
+        signal.pause()
         if sig == signal.SIGCHLD:
             sig = None
             procman.sigchild_handler(sig)
