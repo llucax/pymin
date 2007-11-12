@@ -1,7 +1,9 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 import os
+import signal
 from os import path
+
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
@@ -106,10 +108,10 @@ class VpnHandler(Restorable, ConfigWriter,
     @handler('usage: stop <vpn_name>')
     def stop(self, vpn_src):
         if vpn_src in self.vpns:
-            if path.exists('/var/lib/run/tincd.' + vpn_src + '.pid'):
-                pid = file('/var/lib/run/tincd.' + vpn_src + '.pid').readline()
+            if path.exists('/var/run/tinc.' + vpn_src + '.pid'):
+                pid = file('/var/run/tinc.' + vpn_src + '.pid').readline()
                 try:
-                    os.kill(int(pid.strip()), SIGTERM)
+                    os.kill(int(pid.strip()), signal.SIGTERM)
                 except OSError:
                     pass # XXX report error?
 
