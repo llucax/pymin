@@ -95,7 +95,7 @@ class ProcessManager:
         try:
             (pid, status) = os.waitpid(-1, os.WNOHANG)
         except OSError, e:
-            if e.errno is e.ECHILD:
+            if e.errno is errno.ECHILD:
                 return
             raise
         while pid:
