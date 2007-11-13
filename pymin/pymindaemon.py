@@ -42,25 +42,32 @@ class PyminDaemon(eventloop.EventLoop):
 
         See PyminDaemon class documentation for more info.
         """
+        # Timer timeout time
+        self.timer = timer
         # Create and bind socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(bind_addr)
+        # Signal handling
+        def quit(loop, signum):
+            print "Shuting down ..."
+            loop.stop() # tell main event loop to stop
+        def reload_config(loop, signum):
+            print "Reloading configuration..."
+            # TODO iterate handlers list propagating reload action
+        def timer(loop, signum):
+            loop.handle_timer()
+            signal.alarm(loop.timer)
         # Create EventLoop
-        eventloop.EventLoop.__init__(self, sock, timer=timer)
+        eventloop.EventLoop.__init__(self, sock, signals={
+                signal.SIGINT: quit,
+                signal.SIGTERM: quit,
+                signal.SIGUSR1: reload_config,
+                signal.SIGALRM: timer,
+            })
         # Create Dispatcher
         #TODO root.pymin = PyminHandler()
         self.dispatcher = dispatcher.Dispatcher(root)
-        # Signal handling
-        def quit(signum, frame):
-            print "Shuting down ..."
-            self.stop() # tell main event loop to stop
-        def reload_config(signum, frame):
-            print "Reloading configuration..."
-            # TODO iterate handlers list propagating reload action
-        signal.signal(signal.SIGINT, quit)
-        signal.signal(signal.SIGTERM, quit)
-        signal.signal(signal.SIGUSR1, reload_config)
 
     def handle(self):
         r"handle() -> None :: Handle incoming events using the dispatcher."
@@ -90,6 +97,10 @@ class PyminDaemon(eventloop.EventLoop):
 
     def run(self):
         r"run() -> None :: Run the event loop (shortcut to loop())"
+        # Start the timer
+        self.handle_timer()
+        signal.alarm(self.timer)
+        # Loop
         try:
             return self.loop()
         except eventloop.LoopInterruptedError, e:
