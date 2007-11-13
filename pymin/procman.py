@@ -5,6 +5,9 @@ import errno
 import signal
 import subprocess
 
+__ALL__ = ('ProcessManager', 'manager', 'register', 'unregister', 'call',
+           'start', 'stop', 'kill', 'get', 'has', 'sigchild_handler')
+
 class ProcessInfo:
     def __init__(self, name, command, callback=None, persist=False,
                        args=None, kw=None, max_errors=3):
@@ -88,7 +91,7 @@ class ProcessManager:
         assert name in self.namemap
         self.namemap[name].kill(name, stop)
 
-    def sigchild_handler(self, signum):
+    def sigchild_handler(self, signum, stack_frame=None):
         try:
             (pid, status) = os.waitpid(-1, os.WNOHANG)
         except OSError, e:
@@ -119,7 +122,7 @@ class ProcessManager:
                     return
                 raise
 
-    def __getitem__(self, name):
+    def get(self, name):
         if isinstance(name, basestring): # is a name
             if name in self.namemap:
                 return self.namemap[name]
@@ -130,7 +133,7 @@ class ProcessManager:
                 return self.pidmap[name]
         return KeyError, name
 
-    def __contains__(self, name):
+    def has(self, name):
         if isinstance(name, basestring): # is a name
             if name in self.namemap:
                 return True
@@ -141,6 +144,24 @@ class ProcessManager:
                 return True
         return False
 
+    def __getitem__(self, name):
+        return self.get(name)
+
+    def __contains__(self, name):
+        return self.has(name)
+
+# Globals
+manager = ProcessManager()
+register = manager.register
+unregister = manager.unregister
+call = manager.call
+start = manager.start
+stop = manager.stop
+kill = manager.kill
+get = manager.get
+has = manager.has
+sigchild_handler = manager.sigchild_handler
+
 
 if __name__ == '__main__':
 
@@ -150,7 +171,7 @@ if __name__ == '__main__':
     sig = None
     count = 0
 
-    def sigchild_handler(signum, stacktrace):
+    def SIGCHLD_handler(signum, stacktrace):
         global sig
         sig = signum
         print 'SIGCHLD', signum
@@ -166,21 +187,19 @@ if __name__ == '__main__':
                 pm.start('test2')
         print 'died:', pi.name, pi.command
 
-    procman = ProcessManager()
+    register('test-service', ('sleep', '2'), notify, True)
+    register('test2', ('sleep', '3'), notify, False)
 
-    procman.register('test-service', ('sleep', '2'), notify, True)
-    procman.register('test2', ('sleep', '3'), notify, False)
+    signal.signal(signal.SIGCHLD, SIGCHLD_handler)
 
-    signal.signal(signal.SIGCHLD, sigchild_handler)
+    call('test', ('sleep', '5'), notify)
+    start('test-service')
 
-    procman.call('test', ('sleep', '5'), notify)
-    procman.start('test-service')
-
-    print "Esperando...", [pi.name for pi in procman.namemap.values()]
-    while procman.pidmap:
+    print "Esperando...", [pi.name for pi in manager.namemap.values()]
+    while manager.pidmap:
         signal.pause()
         if sig == signal.SIGCHLD:
             sig = None
-            procman.sigchild_handler(sig)
-        print "Esperando...", [pi.name for pi in procman.namemap.values()]
+            sigchild_handler(sig)
+        print "Esperando...", [pi.name for pi in manager.namemap.values()]
 
