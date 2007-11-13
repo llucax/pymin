@@ -1,1 +1,1 @@
-tc class add dev ${dev} classid 1:${id} htb rate ${rate}
+tc class add dev ${dev} classid 1:${cid} htb rate ${rate}kbps
