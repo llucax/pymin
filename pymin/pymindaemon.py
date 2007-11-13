@@ -15,6 +15,7 @@ from pymin.dispatcher import handler
 from pymin import dispatcher
 from pymin import eventloop
 from pymin import serializer
+from pymin import procman
 
 class PyminDaemon(eventloop.EventLoop):
     r"""PyminDaemon(root, bind_addr) -> PyminDaemon instance
@@ -58,12 +59,15 @@ class PyminDaemon(eventloop.EventLoop):
         def timer(loop, signum):
             loop.handle_timer()
             signal.alarm(loop.timer)
+        def child(loop, signum):
+            procman.sigchild_handler(signum)
         # Create EventLoop
         eventloop.EventLoop.__init__(self, sock, signals={
                 signal.SIGINT: quit,
                 signal.SIGTERM: quit,
                 signal.SIGUSR1: reload_config,
                 signal.SIGALRM: timer,
+                signal.SIGCHLD: child,
             })
         # Create Dispatcher
         #TODO root.pymin = PyminHandler()
