@@ -26,7 +26,6 @@ class ProcessInfo:
         self.signal = None
         self.process = None
         self.error_count = 0
-        self.last_return = None
         self.running = False
     def start(self):
         assert self.process is None
@@ -101,6 +100,7 @@ class ProcessManager:
         while pid:
             if pid in self.pidmap:
                 p = self.pidmap[pid]
+                p.process.returncode = status
                 if p.callback is not None:
                     p.callback(self, p)
                 if p.dont_run or not p.persist or p.error_count >= p.max_errors:
