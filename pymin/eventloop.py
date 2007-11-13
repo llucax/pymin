@@ -37,16 +37,16 @@ class LoopInterruptedError(RuntimeError):
         r"str(obj) -> String representation."
         return 'Loop interrupted: %s' % self.select_error
 
-# Flag to know if a timer was expired
-timeout = False
+# Flag to know if a signal was caught
+signals = list()
 
 # Alarm Signal handler
-def alarm_handler(signum, stack_frame):
-    global timeout
-    timeout = True
+def signal_handler(signum, stack_frame):
+    global signals
+    signals.append(signum)
 
 class EventLoop:
-    r"""EventLoop(file[, timer[, handler[, timer_handler]]]) -> EventLoop.
+    r"""EventLoop(file[, handler[, signals]]]) -> EventLoop.
 
     This class implements a simple event loop based on select module.
     It "listens" to activity a single 'file' object (a file, a pipe,
@@ -54,8 +54,11 @@ class EventLoop:
     function (or the handle() method if you prefer subclassing) every
     time the file is ready for reading (or has an error).
 
-    If a 'timer' is supplied, then the timer_handler() function object
-    (or the handle_timer() method) is called every 'timer' seconds.
+    'signals' is a dictionary with signals to be handled by the loop,
+    where keys are signal numbers and values are callbacks (which takes
+    2 arguments, first the event loop that captured the signal, and then
+    the captured signal number). Callbacks can be None if all signals
+    are handled by the handle_signal() member function.
 
     This is a really simple example of usage using a hanlder callable:
 
@@ -75,20 +78,19 @@ class EventLoop:
     >>> class Test(EventLoop):
     >>>     def handle(self):
     >>>         data = os.read(self.fileno, 100)
-    >>>         if data == 'q\n':
-    >>>             self.stop()
-    >>>         else:
-    >>>             os.write(1, 'Received message: %r\n' % data)
-    >>>     def handle_timer(self):
-    >>>         print time.strftime('%c')
-    >>> p = Test(0, timer=5)
+    >>>         os.write(1, 'Received message: %r\n' % data)
+    >>>     def handle_signal(self, signum):
+    >>>         os.write(1, 'Signal %d received, stopping\n' % signum)
+    >>>         self.stop()
+    >>> p = Test(0, signals={signal.SIGTERM: None, signal.SIGINT: None})
     >>> p.loop()
 
-    This example loops until the user enters a single "q", when stop()
-    is called and the event loop is exited.
+    This example loops until the user enter interrupts the program (by
+    pressing Ctrl-C) or untile the program is terminated by a TERM signal
+    (kill) when stop() is called and the event loop is exited.
     """
 
-    def __init__(self, file, handler=None, timer=None, timer_handler=None):
+    def __init__(self, file, handler=None, signals=None):
         r"""Initialize the EventLoop object.
 
         See EventLoop class documentation for more info.
@@ -96,14 +98,34 @@ class EventLoop:
         self.poll = select.poll()
         self._stop = False
         self.__register(file)
-        self.timer = timer
         self.handler = handler
-        self.timer_handler = timer_handler
+        self.signals = dict()
+        if signals is None:
+            signals = dict()
+        for (signum, sighandler) in signals.items():
+            self.set_signal(signum, sighandler)
 
     def __register(self, file):
         r"__register(file) -> None :: Register a new file for polling."
         self._file = file
         self.poll.register(self.fileno, POLLIN | POLLPRI | POLLERR)
+
+    def set_signal(self, signum, sighandler):
+        prev = self.signals.get(signum, None)
+        # If the signal was not already handled, handle it
+        if signum not in self.signals:
+            signal.signal(signum, signal_handler)
+        self.signals[signum] = sighandler
+        return prev
+
+    def get_signal_handler(self, signum):
+        return self.signals[signum]
+
+    def unset_signal(self, signum):
+        prev = self.signals[signum]
+        # Restore the default handler
+        signal.signal(signum, signal.SIG_DFL)
+        return prev
 
     def set_file(self, file):
         r"""set_file(file) -> None :: New file object to be monitored
@@ -142,40 +164,35 @@ class EventLoop:
         Wait for events and handle then when they arrive. If once is True,
         then only 1 event is processed and then this method returns.
         """
-        # Flag modified by the signal handler
-        global timeout
-        # If we use a timer, we set up the signal
-        if self.timer is not None:
-            signal.signal(signal.SIGALRM, alarm_handler)
-            self.handle_timer()
-            signal.alarm(self.timer)
+        # List of pending signals
+        global signals
         while True:
             try:
                 res = self.poll.poll()
             except select.error, e:
-                # The error is not an interrupt caused by the alarm, then raise
-                if e.args[0] != errno.EINTR or not timeout:
+                # The error is not an interrupt caused by a signal, then raise
+                if e.args[0] != errno.EINTR or not signals:
                     raise LoopInterruptedError(e)
-            # There was a timeout, so execute the timer handler
-            if timeout:
-                timeout = False
-                self.handle_timer()
-                signal.alarm(self.timer)
-            # Not a timeout, execute the regular handler
-            else:
+            # If we have signals to process, we just do it
+            have_signals = bool(signals)
+            while signals:
+                self.handle_signal(signals.pop(0))
+            # No signals to process, execute the regular handler
+            if not have_signals:
                 self.handle()
+            import os
             # Look if we have to stop
             if self._stop or once:
                 self._stop = False
                 break
 
     def handle(self):
-        r"handle() -> None :: Abstract method to be overriden to handle events."
+        r"handle() -> None :: Handle file descriptor events."
         self.handler(self)
 
-    def handle_timer(self):
-        r"handle() -> None :: Abstract method to be overriden to handle events."
-        self.timer_handler(self)
+    def handle_signal(self, signum):
+        r"handle_signal(signum) -> None :: Handles signals."
+        self.signals[signum](self, signum)
 
 if __name__ == '__main__':
 
@@ -195,16 +212,14 @@ if __name__ == '__main__':
     class Test(EventLoop):
         def handle(self):
             data = os.read(self.fileno, 100)
-            if data == 'q\n':
-                self.stop()
-            else:
-                os.write(1, 'Received message: %r\n' % data)
-        def handle_timer(self):
-            print time.strftime('%c')
+            os.write(1, 'Received message: %r\n' % data)
+        def handle_signal(self, signum):
+            os.write(1, 'Signal %d received, stopping\n' % signum)
+            self.stop()
 
-    p = Test(0, timer=5)
+    p = Test(0, signals={signal.SIGTERM: None, signal.SIGINT: None})
 
-    os.write(1, 'Say a lot of things, then press write just "q" to stop: ')
+    os.write(1, 'Say a lot of things, then press Ctrl-C or kill me to stop: ')
     p.loop()
     os.write(1, 'Ok, bye!\n')
 
