@@ -13,17 +13,17 @@ class Root(Handler):
 
     firewall = FirewallHandler(
         pickle_dir = join(pickle_path, 'firewall'),
-        config_dir = '/tmp')
+        config_dir = join(config_path, 'firewall'))
 
     nat = NatHandler(pickle_dir = join(pickle_path, 'nat'))
 
     ppp = PppHandler(
         pickle_dir = join(pickle_path, 'ppp'),
         config_dir = {
-            'pap-secrets':  '/etc/ppp',
-            'chap-secrets': '/etc/ppp',
-            'options.X':    '/etc/ppp',
-            'nameX':        '/etc/ppp/peers',
+            'pap-secrets':  join(config_path, 'ppp'),
+            'chap-secrets': join(config_path, 'ppp'),
+            'options.X':    join(config_path, 'ppp'),
+            'nameX':        join(config_path, 'ppp', 'peers'),
         })
 
     vpn = VpnHandler(
@@ -37,29 +37,30 @@ class Root(Handler):
     dns = DnsHandler(
         pickle_dir = join(pickle_path, 'dns'),
         config_dir = {
-            'named.conf': '/etc',
-            'zoneX.zone': '/var/lib/named',
+            'named.conf': join(config_path, 'dns'),
+            'zoneX.zone': join(config_path, 'dns', 'zones'),
         })
 
     dhcp = DhcpHandler(
         pickle_dir = join(pickle_path, 'dhcp'),
-        config_dir = '/etc')
+        config_dir = join(config_path, 'dhcp'))
 
     proxy = ProxyHandler(
         pickle_dir = join(pickle_path, 'proxy'),
-        config_dir = '/etc/squid')
+        config_dir = join(config_path, 'proxy'))
 
     vrrp = VrrpHandler(
         pickle_dir = join(pickle_path, 'vrrp'),
         config_dir = join(config_path, 'vrrp'),
-        pid_dir    = '/var/run')
-    
+        pid_dir    = join(config_path, 'vrrp', 'run'))
+
     vpn = VpnHandler(
         pickle_dir = join(pickle_path, 'vpn'),
-        config_dir = '/etc/tinc')
+        config_dir = join(config_path, 'vpn'))
+
     #qos = QoSHandler(
-    #	pickle_dir = join(pickle_path, 'qos'),
-    #	config_dir = join(config_path, 'qos'))
+    #    pickle_dir = join(pickle_path, 'qos'),
+    #    config_dir = join(config_path, 'qos'))
 
 bind_addr = \
 (
