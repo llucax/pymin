@@ -84,7 +84,7 @@ class ProcessManager:
 
     def stop(self, name):
         assert name in self.namemap
-        self.namemap[name].stop(name)
+        self.namemap[name].stop()
 
     def kill(self, name, signum):
         assert name in self.namemap
