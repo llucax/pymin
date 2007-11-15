@@ -131,7 +131,7 @@ class ProcessManager:
         else: # is a pid
             if name in self.pidmap:
                 return self.pidmap[name]
-        return KeyError, name
+        raise KeyError, name
 
     def has(self, name):
         if isinstance(name, basestring): # is a name
