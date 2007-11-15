@@ -45,7 +45,7 @@ class ProcessInfo:
             self.kill(signal.SIGTERM)
     def kill(self, signum):
         assert self.process is not None
-        os.kill(pi.process.pid, signum)
+        os.kill(self.process.pid, signum)
         self.signal = signum
     def __repr__(self):
         pid = None
