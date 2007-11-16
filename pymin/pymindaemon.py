@@ -10,6 +10,7 @@ command-line.
 
 import signal
 import socket
+import logging ; log = logging.getLogger('pymin.pymindaemon')
 
 from pymin.dispatcher import handler
 from pymin import dispatcher
@@ -42,6 +43,8 @@ class PyminDaemon(eventloop.EventLoop):
 
         See PyminDaemon class documentation for more info.
         """
+        log.debug(u'PyminDaemon(%s.%s, %s, %s)', root.__class__.__module__,
+                  root.__class__.__name__, bind_addr, timer)
         # Create and bind socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -53,10 +56,12 @@ class PyminDaemon(eventloop.EventLoop):
         self.dispatcher = dispatcher.Dispatcher(root)
         # Signal handling
         def quit(signum, frame):
-            print "Shuting down ..."
+            log.debug(u'PyminDaemon quit() handler: signal %s', signum)
+            log.info(u'Shutting down...')
             self.stop() # tell main event loop to stop
         def reload_config(signum, frame):
-            print "Reloading configuration..."
+            log.debug(u'PyminDaemon reload_config() handler: signal %s', signum)
+            log.info(u'Reloading configuration...')
             # TODO iterate handlers list propagating reload action
         signal.signal(signal.SIGINT, quit)
         signal.signal(signal.SIGTERM, quit)
@@ -65,6 +70,7 @@ class PyminDaemon(eventloop.EventLoop):
     def handle(self):
         r"handle() -> None :: Handle incoming events using the dispatcher."
         (msg, addr) = self.file.recvfrom(65535)
+        log.debug(u'PyminDaemon.handle: message %r from %s', msg, addr)
         try:
             result = self.dispatcher.dispatch(unicode(msg, 'utf-8'))
             if result is not None:
@@ -76,12 +82,13 @@ class PyminDaemon(eventloop.EventLoop):
         except Exception, e:
             import traceback
             result = u'Internal server error\n'
-            traceback.print_exc() # TODO logging!
             response = u'ERROR '
+            log.exception(u'PyminDaemon.handle: unhandled exception')
         if result is None:
             response += u'0\n'
         else:
             response += u'%d\n%s' % (len(result), result)
+        log.debug(u'PyminDaemon.handle: response %r to %s', response, addr)
         self.file.sendto(response.encode('utf-8'), addr)
 
     def handle_timer(self):
@@ -90,12 +97,20 @@ class PyminDaemon(eventloop.EventLoop):
 
     def run(self):
         r"run() -> None :: Run the event loop (shortcut to loop())"
+        log.debug(u'PyminDaemon.loop()')
         try:
             return self.loop()
         except eventloop.LoopInterruptedError, e:
+            log.debug(u'PyminDaemon.loop: interrupted')
             pass
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     class Root(dispatcher.Handler):
         @handler(u"Print all the arguments, return nothing.")
