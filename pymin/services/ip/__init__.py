@@ -2,13 +2,15 @@
 
 from subprocess import Popen, PIPE
 from os import path
+import logging ; log = logging.getLogger('pymin.services.ip')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, SubHandler, call, \
                                 get_network_devices, ListComposedSubHandler, \
-                                DictComposedSubHandler, Device, Address, ExecutionError
+                                DictComposedSubHandler, Device, Address, \
+                                ExecutionError
 
 __ALL__ = ('IpHandler',)
 
@@ -118,6 +120,7 @@ class DeviceHandler(SubHandler):
     handler_help = u"Manage network devices"
 
     def __init__(self, parent):
+        log.debug(u'DeviceHandler(%r)', parent)
         # FIXME remove templates to execute commands
         from mako.template import Template
         self.parent = parent
@@ -127,24 +130,30 @@ class DeviceHandler(SubHandler):
 
     @handler(u'Bring the device up')
     def up(self, name):
+        log.debug(u'DeviceHandler.up(%r)', name)
         if name in self.parent.devices:
             call(self.device_template.render(dev=name, action='up'), shell=True)
         else:
+            log.debug(u'DeviceHandler.up: device not found')
             raise DeviceNotFoundError(name)
 
     @handler(u'Bring the device down')
     def down(self, name):
+        log.debug(u'DeviceHandler.down(%r)', name)
         if name in self.parent.devices:
             call(self.device_template.render(dev=name, action='down'), shell=True)
         else:
+            log.debug(u'DeviceHandler.up: device not found')
             raise DeviceNotFoundError(name)
 
     @handler(u'List all devices')
     def list(self):
+        log.debug(u'DeviceHandler.list()')
         return self.parent.devices.keys()
 
     @handler(u'Get information about a device')
     def show(self):
+        log.debug(u'DeviceHandler.show()')
         return self.parent.devices.items()
 
 class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
@@ -164,6 +173,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     def __init__(self, pickle_dir='.', config_dir='.'):
         r"Initialize DhcpHandler object, see class documentation for details."
+        log.debug(u'IpHandler(%r, %r)', pickle_dir, config_dir)
         self._persistent_dir = pickle_dir
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
@@ -176,75 +186,92 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
+        log.debug(u'IpHandler._write_config()')
         for device in self.devices.values():
+            log.debug(u'IpHandler._write_config: processing device %s', device)
             try:
-                call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+                log.debug(u'IpHandler._write_config: flushing routes...')
+                call(self._render_config('route_flush', dict(dev=device.name)),
+                        shell=True)
             except ExecutionError, e:
-                print e
+                log.debug(u'IpHandler._write_config: error flushing -> %r', e)
             try:
-                call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
+                log.debug(u'IpHandler._write_config: flushing addrs...')
+                call(self._render_config('ip_flush', dict(dev=device.name)),
+                        shell=True)
             except ExecutionError, e:
-                print e
+                log.debug(u'IpHandler._write_config: error flushing -> %r', e)
             for address in device.addrs.values():
                 broadcast = address.broadcast
                 if broadcast is None:
                     broadcast = '+'
                 try:
+                    log.debug(u'IpHandler._write_config: adding %r', address)
                     call(self._render_config('ip_add', dict(
-                        dev = device.name,
-                        addr = address.ip,
-                        netmask = address.netmask,
-                        peer = address.peer,
-                        broadcast = broadcast,
-                        )
-                    ), shell=True)
+                            dev = device.name,
+                            addr = address.ip,
+                            netmask = address.netmask,
+                            peer = address.peer,
+                            broadcast = broadcast,
+                        )), shell=True)
                 except ExecutionError, e:
-                      print e
+                    log.debug(u'IpHandler._write_config: error adding -> %r', e)
             for route in device.routes:
                 try:
+                    log.debug(u'IpHandler._write_config: adding %r', route)
                     call(self._render_config('route_add', dict(
                             dev = device.name,
                             net_addr = route.net_addr,
                             prefix = route.prefix,
                             gateway = route.gateway,
-                        )
-                     ), shell=True)
+                        )), shell=True)
                 except ExecutionError, e:
-                    print e
+                    log.debug(u'IpHandler._write_config: error adding -> %r', e)
         if self.hops:
+            log.debug(u'IpHandler._write_config: we have hops: %r', self.hops)
             try:
+                log.debug(u'IpHandler._write_config: flushing default route')
                 call('ip route del default', shell=True)
             except ExecutionError, e:
-                print e
+                log.debug(u'IpHandler._write_config: error adding -> %r', e)
             try:
+                log.debug(u'IpHandler._write_config: configuring hops')
                 call(self._render_config('hop', dict(
                     hops = self.hops,
                         )
                 ), shell=True)
             except ExecutionError, e:
-                print e
-
+                log.debug(u'IpHandler._write_config: error adding -> %r', e)
 
     def handle_timer(self):
+        log.debug(u'IpHandler.handle_timer()')
         self.refresh_devices()
 
-
     def refresh_devices(self):
+        log.debug(u'IpHandler.update_devices()')
         devices = get_network_devices()
         #add not registered devices
         for k,v in devices.items():
             if k not in self.devices:
+                log.debug(u'IpHandler.update_devices: adding %r', v)
                 self.devices[k] = v
         #delete dead devices
         for k in self.devices.keys():
             if k not in devices:
+                log.debug(u'IpHandler.update_devices: removing %s', k)
                 del self.devices[k]
 
 
 
 if __name__ == '__main__':
 
-    ip = IpHanlder()
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
+
+    ip = IpHandler()
     print '----------------------'
     ip.hop.add('201.21.32.53','eth0')
     ip.hop.add('205.65.65.25','eth1')
