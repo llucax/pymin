@@ -25,11 +25,11 @@ class VrrpHandler(Restorable, ParametersHandler, ReloadHandler, RestartHandler,
 
     _restorable_defaults = dict(
         params = dict(
-                ipaddress='192.168.0.1',
-                id = '1',
-                prio = '',
-                dev = 'eth0',
-                persist = True,
+                ipaddress = '192.168.0.1',
+                id        = '1',
+                prio      = '',
+                dev       = 'eth0',
+                persist   = True,
             ),
         )
 
