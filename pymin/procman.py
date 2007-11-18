@@ -86,6 +86,15 @@ class ProcessManager:
         assert name in self.namemap
         self.namemap[name].stop()
 
+    def restart(self, name):
+        logging.debug(u'ProcessManager.restart(%s)', name)
+        if name in self.namemap:
+            self.namemap[name].stop()
+            self.namemap[name].wait()
+            self.namemap[name].restart()
+        else:
+            self.namemap[name].start()
+
     def kill(self, name, signum):
         assert name in self.namemap
         self.namemap[name].kill(name, stop)
