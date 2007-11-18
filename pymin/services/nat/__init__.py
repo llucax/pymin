@@ -1,6 +1,7 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 from os import path
+import logging ; log = logging.getLogger('pymin.services.nat')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
@@ -204,21 +205,27 @@ class NatHandler(Restorable, ConfigWriter, ReloadHandler, ServiceHandler,
     )
 
     def _service_start(self):
+        log.debug(u'NatHandler._service_start(): flushing nat table')
         call(('iptables', '-t', 'nat', '-F'))
         for (index, port) in enumerate(self.ports):
+            log.debug(u'NatHandler._service_start: adding port %r', port)
             call(['iptables'] + port.as_call_list(index+1))
         for (index, snat) in enumerate(self.snats):
+            log.debug(u'NatHandler._service_start: adding snat %r', snat)
             call(['iptables'] + snat.as_call_list(index+1))
         for (index, masq) in enumerate(self.masqs):
+            log.debug(u'NatHandler._service_start: adding masq %r', masq)
             call(['iptables'] + masq.as_call_list(index+1))
 
     def _service_stop(self):
+        log.debug(u'NatHandler._service_stop(): flushing nat table')
         call(('iptables', '-t', 'nat', '-F'))
 
     _service_restart = _service_start
 
     def __init__(self, pickle_dir='.'):
         r"Initialize the object, see class documentation for details."
+        log.debug(u'NatHandler(%r)', pickle_dir)
         self._persistent_dir = pickle_dir
         ServiceHandler.__init__(self)
         self.forward = PortForwardHandler(self)
@@ -227,6 +234,12 @@ class NatHandler(Restorable, ConfigWriter, ReloadHandler, ServiceHandler,
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     import os
 
