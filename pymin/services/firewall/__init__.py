@@ -4,6 +4,7 @@
 # of using script templates.
 
 from os import path
+import logging ; log = logging.getLogger('pymin.services.firewall')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
@@ -93,6 +94,7 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
 
     def __init__(self, pickle_dir='.', config_dir='.'):
         r"Initialize the object, see class documentation for details."
+        log.debug(u'FirewallHandler(%r, %r)', pickle_dir, config_dir)
         self._persistent_dir = pickle_dir
         self._config_writer_cfg_dir = config_dir
         self._service_start = ('sh', path.join(self._config_writer_cfg_dir,
@@ -109,6 +111,12 @@ class FirewallHandler(Restorable, ConfigWriter, ServiceHandler,
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     import os
 
