@@ -16,13 +16,13 @@ from pymin.seqtools import Sequence
 #DEBUG = False
 DEBUG = True
 
-__ALL__ = ('Error', 'ReturnNot0Error', 'ExecutionError', 'ItemError',
-            'ItemAlreadyExistsError', 'ItemNotFoundError', 'ContainerError',
-            'ContainerNotFoundError', 'call', 'get_network_devices',
-            'Persistent', 'Restorable', 'ConfigWriter', 'ServiceHandler',
-            'RestartHandler', 'ReloadHandler', 'InitdHandler', 'SubHandler',
-            'DictSubHandler', 'ListSubHandler', 'ComposedSubHandler',
-            'ListComposedSubHandler', 'DictComposedSubHandler', 'Device','Address')
+__ALL__ = ('Error', 'ExecutionError', 'ItemError', 'ItemAlreadyExistsError',
+           'ItemNotFoundError', 'ContainerError', 'ContainerNotFoundError',
+           'call', 'get_network_devices', 'Persistent', 'Restorable',
+           'ConfigWriter', 'ServiceHandler', 'RestartHandler',
+           'ReloadHandler', 'InitdHandler', 'SubHandler', 'DictSubHandler',
+           'ListSubHandler', 'ComposedSubHandler', 'ListComposedSubHandler',
+           'DictComposedSubHandler', 'Device','Address')
 
 class Error(HandlerError):
     r"""
@@ -34,22 +34,6 @@ class Error(HandlerError):
     message - A descriptive error message.
     """
     pass
-
-class ReturnNot0Error(Error):
-    r"""
-    ReturnNot0Error(return_value) -> ReturnNot0Error instance.
-
-    A command didn't returned the expected 0 return value.
-
-    return_value - Return value returned by the command.
-    """
-
-    def __init__(self, return_value):
-        r"Initialize the object. See class documentation for more info."
-        self.return_value = return_value
-
-    def __unicode__(self):
-        return 'The command returned %d' % self.return_value
 
 class ExecutionError(Error):
     r"""
@@ -232,13 +216,11 @@ def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         return
     try:
         print 'Executing command:', command
-        r = subprocess.call(command, stdin=stdin, stdout=stdout, stderr=stderr,
-                                universal_newlines=universal_newlines,
-                                close_fds=close_fds, **kw)
+        r = subprocess.check_call(command, stdin=stdin, stdout=stdout,
+                    stderr=stderr, close_fds=close_fds,
+                    universal_newlines=universal_newlines, **kw)
     except Exception, e:
         raise ExecutionError(command, e)
-    if r is not 0:
-        raise ExecutionError(command, ReturnNot0Error(r))
 
 class Persistent:
     r"""Persistent([attrs[, dir[, ext]]]) -> Persistent.
