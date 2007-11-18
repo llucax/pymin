@@ -50,6 +50,12 @@ class VrrpHandler(Restorable, ParametersHandler, ReloadHandler, RestartHandler,
     def _service_stop(self):
         procman.stop('vrrp')
 
+    def _service_restart(self):
+        procinfo = procman.get('vrrp')
+        procinfo.command = self._command
+        procinfo.persist = self.params['persist']
+        procman.restart('vrrp')
+
     def __init__(self, pickle_dir='.', config_dir='.', pid_dir='.'):
         self._persistent_dir = pickle_dir
         self._pid_dir = pid_dir
