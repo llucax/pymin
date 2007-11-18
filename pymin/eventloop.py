@@ -10,6 +10,7 @@ import select
 import errno
 import signal
 from select import POLLIN, POLLPRI, POLLERR
+import logging ; log = logging.getLogger('pymin.eventloop')
 
 __ALL__ = ('EventLoop', 'LoopInterruptedError')
 
@@ -93,6 +94,8 @@ class EventLoop:
 
         See EventLoop class documentation for more info.
         """
+        log.debug(u'EventLoop(%r, %r, %r, %r)', file, handler,
+                    timer, timer_handler)
         self.poll = select.poll()
         self._stop = False
         self.__register(file)
@@ -134,6 +137,7 @@ class EventLoop:
         The event loop will be interrupted as soon as the current handler
         finishes.
         """
+        log.debug(u'EventLoop.stop()')
         self._stop = True
 
     def loop(self, once=False):
@@ -142,6 +146,7 @@ class EventLoop:
         Wait for events and handle then when they arrive. If once is True,
         then only 1 event is processed and then this method returns.
         """
+        log.debug(u'EventLoop.loop(%s)', once)
         # Flag modified by the signal handler
         global timeout
         # If we use a timer, we set up the signal
@@ -151,6 +156,7 @@ class EventLoop:
             signal.alarm(self.timer)
         while True:
             try:
+                log.debug(u'EventLoop.loop: polling')
                 res = self.poll.poll()
             except select.error, e:
                 # The error is not an interrupt caused by the alarm, then raise
@@ -158,14 +164,17 @@ class EventLoop:
                     raise LoopInterruptedError(e)
             # There was a timeout, so execute the timer handler
             if timeout:
+                log.debug(u'EventLoop.loop: timer catched, handling...')
                 timeout = False
                 self.handle_timer()
                 signal.alarm(self.timer)
             # Not a timeout, execute the regular handler
             else:
+                log.debug(u'EventLoop.loop: no timeout, handle event')
                 self.handle()
             # Look if we have to stop
             if self._stop or once:
+                log.debug(u'EventLoop.loop: stopped')
                 self._stop = False
                 break
 
@@ -178,6 +187,12 @@ class EventLoop:
         self.timer_handler(self)
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     import os
     import time
