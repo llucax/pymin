@@ -3,6 +3,7 @@
 import os
 import signal
 from os import path
+import logging ; log = logging.getLogger('pymin.services.vpn')
 
 
 from pymin.seqtools import Sequence
@@ -79,7 +80,8 @@ class VpnHandler(Restorable, ConfigWriter,
     _config_writer_tpl_dir = path.join(path.dirname(__file__), 'templates')
 
     def __init__(self,  pickle_dir='.', config_dir='/etc/tinc'):
-        DictSubHandler.__init__(self,self)
+        log.debug(u'VpnHandler(%r, %r)', pickle_dir, config_dir)
+        DictSubHandler.__init__(self, self)
         self._config_writer_cfg_dir = config_dir
         self._persistent_dir = pickle_dir
         self._config_build_templates()
@@ -88,75 +90,108 @@ class VpnHandler(Restorable, ConfigWriter,
 
     @handler('usage : add <vpn_name> <vpn_dst> <vpn_src_ip> <vpn_src_mask>')
     def add(self, vpn_src, vpn_dst, vpn_src_ip, vpn_src_mask):
-        if not vpn_src in self.vpns:
-            DictSubHandler.add(self,  vpn_src, vpn_dst, vpn_src_ip, vpn_src_mask, None, None)
-        elif vpn_src in self.vpns:
-            if self.vpns[vpn_src].dele :
+        log.debug(u'VpnHandler.add(%r, %r, %r, %r)', vpn_src, vpn_dst,
+                    vpn_src_ip, vpn_src_mask)
+        if vpn_src in self.vpns:
+            if self.vpns[vpn_src].dele:
+                log.debug(u'VpnHandler.add: deleted, undeleting')
                 self.vpns[vpn_src] = False
+        else:
+            DictSubHandler.add(self, vpn_src, vpn_dst, vpn_src_ip,
+                                vpn_src_mask, None, None)
 
     @handler('usage : delete <vpn_name>')
     def delete(self, vpn_src):
+        log.debug(u'VpnHandler.delete(%r)', vpn_src)
         if vpn_src in self.vpns:
             self.vpns[vpn_src].dele = True;
 
 
     @handler('usage: start <vpn_name>')
     def start(self, vpn_src):
+        log.debug(u'VpnHandler.start(%r)', vpn_src)
         if vpn_src in self.vpns:
             call(('tincd','--net='+ vpn_src))
 
     @handler('usage: stop <vpn_name>')
     def stop(self, vpn_src):
+        log.debug(u'VpnHandler.stop(%r)', vpn_src)
         if vpn_src in self.vpns:
-            if path.exists('/var/run/tinc.' + vpn_src + '.pid'):
-                pid = file('/var/run/tinc.' + vpn_src + '.pid').readline()
+            pid_file = '/var/run/tinc.' + vpn_src + '.pid'
+            log.debug(u'VpnHandler.stop: getting pid from %r', pid_file)
+            if path.exists(pid_file):
+                pid = file(pid_file).readline()
+                pid = int(pid.strip())
                 try:
-                    os.kill(int(pid.strip()), signal.SIGTERM)
+                    log.debug(u'VpnHandler.stop: killing pid %r', pid)
+                    os.kill(pid, signal.SIGTERM)
                 except OSError:
-                    pass # XXX report error?
+                    log.debug(u'VpnHandler.stop: error killing: %r', e)
+            else:
+                log.debug(u'VpnHandler.stop: pid file not found')
 
     def _write_config(self):
+        log.debug(u'VpnHandler._write_config()')
         for v in self.vpns.values():
+            log.debug(u'VpnHandler._write_config: processing %r', v)
             #chek whether it's been created or not.
             if not v.dele:
-                if v.pub_key is None :
+                if v.pub_key is None:
+                    log.debug(u'VpnHandler._write_config: new VPN, generating '
+                                'key...')
                     try:
-                        print 'douugh'
+                        log.debug(u'VpnHandler._write_config: creating dir %r',
+                                    path.join(self._config_writer_cfg_dir,
+                                                v.vpn_src ,'hosts'))
                         #first create the directory for the vpn
-                        call(('mkdir','-p', path.join(self._config_writer_cfg_dir, v.vpn_src ,'hosts')))
+                        call(('mkdir', '-p', path.join(
+                                            self._config_writer_cfg_dir,
+                                            v.vpn_src, 'hosts')))
                         #this command should generate 2 files inside the vpn
                         #dir, one rsa_key.priv and one rsa_key.pub
                         #for some reason debian does not work like this
-                        call(('tincd','-n', v.vpn_src,'-K','<','/dev/null'))
+                        # FIXME if the < /dev/null works, is magic!
+                        log.debug(u'VpnHandler._write_config: creating key...')
+                        call(('tincd', '-n', v.vpn_src, '-K', '<', '/dev/null'))
                         #open the created files and load the keys
-                        f = file(path.join(self._config_writer_cfg_dir, v.vpn_src , 'rsa_key.priv'), 'r')
+                        f = file(path.join(self._config_writer_cfg_dir,
+                                            v.vpn_src, 'rsa_key.priv'), 'r')
                         priv = f.read()
                         f.close()
-                        f = file(path.join(self._config_writer_cfg_dir, v.vpn_src ,'rsa_key.pub'), 'r')
+                        f = file(path.join(self._config_writer_cfg_dir,
+                                            v.vpn_src, 'rsa_key.pub'), 'r')
                         pub = f.read()
                         f.close()
                         v.pub_key = pub
                         v.priv_key = priv
                     except ExecutionError, e:
-                        print e
+                        log.debug(u'VpnHandler._write_config: error executing '
+                                    'the command: %r', e)
 
                 vars = dict(
                     vpn = v,
                 )
-                self._write_single_config('tinc.conf',path.join(v.vpn_src,'tinc.conf'),vars)
-                self._write_single_config('tinc-up',path.join(v.vpn_src,'tinc-up'),vars)
+                self._write_single_config('tinc.conf',
+                                path.join(v.vpn_src, 'tinc.conf'), vars)
+                self._write_single_config('tinc-up',
+                                path.join(v.vpn_src, 'tinc-up'), vars)
                 for h in v.hosts.values():
                     if not h.dele:
                         vars = dict(
                             host = h,
                         )
-                        self._write_single_config('host',path.join(v.vpn_src,'hosts',h.name),vars)
+                        self._write_single_config('host',
+                                path.join(v.vpn_src, 'hosts', h.name), vars)
                     else:
+                        log.debug(u'VpnHandler._write_config: removing...')
                         try:
-                            call(('rm','-f', path.join(v.vpn_src,'hosts',h.name)))
+                            # FIXME use os.unlink()
+                            call(('rm','-f',
+                                    path.join(v.vpn_src, 'hosts', h.name)))
                             del v.hosts[h.name]
                         except ExecutionError, e:
-                            print e
+                            log.debug(u'VpnHandler._write_config: error '
+                                    'removing files: %r', e)
             else:
                 #delete the vpn root at tinc dir
                 if path.exists('/etc/tinc/' + v.vpn_src):
@@ -166,7 +201,16 @@ class VpnHandler(Restorable, ConfigWriter,
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
+
     v = VpnHandler()
     v.add('prueba','sarasa','192.168.0.188','255.255.255.0')
-    v.host.add('prueba', 'azazel' ,'192.168.0.77', '192.168.0.0','kjdhfkbdskljvkjblkbjeslkjbvkljbselvslberjhbvslbevlhb')
+    v.host.add('prueba', 'azazel' ,'192.168.0.77', '192.168.0.0',
+                'kjdhfkbdskljvkjblkbjeslkjbvkljbselvslberjhbvslbevlhb')
     v.commit()
+
