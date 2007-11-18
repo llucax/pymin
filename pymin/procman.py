@@ -208,7 +208,7 @@ if __name__ == '__main__':
     while manager.pidmap:
         signal.pause()
         if sig == signal.SIGCHLD:
-            sig = None
             sigchild_handler(sig)
+            sig = None
         print "Esperando...", [pi.name for pi in manager.namemap.values()]
 
