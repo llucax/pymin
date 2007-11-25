@@ -171,10 +171,11 @@ class Device(Sequence):
         self.name = name
         self.mac = mac
         self.ppp = ppp
+        self.active = True
         self.addrs = dict()
         self.routes = list()
     def as_tuple(self):
-        return (self.name, self.mac, self.addrs)
+        return (self.name, self.mac, self.active, self.addrs)
 
 
 

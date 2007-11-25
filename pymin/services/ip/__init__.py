@@ -177,53 +177,67 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            try:
-                call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
-            except ExecutionError, e:
-                print e
-            try:
-                call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
-            except ExecutionError, e:
-                print e
-            for address in device.addrs.values():
-                broadcast = address.broadcast
-                if broadcast is None:
-                    broadcast = '+'
-                try:
-                    call(self._render_config('ip_add', dict(
-                        dev = device.name,
-                        addr = address.ip,
-                        netmask = address.netmask,
-                        peer = address.peer,
-                        broadcast = broadcast,
-                        )
-                    ), shell=True)
-                except ExecutionError, e:
-                      print e
-            for route in device.routes:
-                try:
-                    call(self._render_config('route_add', dict(
-                            dev = device.name,
-                            net_addr = route.net_addr,
-                            prefix = route.prefix,
-                            gateway = route.gateway,
-                        )
-                     ), shell=True)
-                except ExecutionError, e:
-                    print e
+            if device.active:
+                self._write_config_for_device(device)
+        self._write_hops()
+
+    def _write_hops(self):
+        r"_write_hops() -> None :: Execute all hops."
         if self.hops:
             try:
                 call('ip route del default', shell=True)
             except ExecutionError, e:
                 print e
             try:
+                #get hops for active devices
+                active_hops = dict()
+                for h in self.hops:
+                    if h.device in self.devices:
+                        if self.devices[h.device].active
+                            active_hops.append(h)
                 call(self._render_config('hop', dict(
-                    hops = self.hops,
+                    hops = active_hops,
                         )
                 ), shell=True)
             except ExecutionError, e:
                 print e
 
+    def _write_config_for_device(self, device):
+        r"_write_config_for_device(self, device) -> None :: Execute all commands for a device."
+        try:
+            call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+        except ExecutionError, e:
+            print e
+        try:
+            call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
+        except ExecutionError, e:
+            print e
+        for address in device.addrs.values():
+            broadcast = address.broadcast
+            if broadcast is None:
+                broadcast = '+'
+            try:
+                call(self._render_config('ip_add', dict(
+                    dev = device.name,
+                    addr = address.ip,
+                    netmask = address.netmask,
+                    peer = address.peer,
+                    broadcast = broadcast,
+                    )
+                ), shell=True)
+            except ExecutionError, e:
+                print e
+        for route in device.routes:
+            try:
+                call(self._render_config('route_add', dict(
+                        dev = device.name,
+                        net_addr = route.net_addr,
+                        prefix = route.prefix,
+                        gateway = route.gateway,
+                    )
+                ), shell=True)
+            except ExecutionError, e:
+                print e
 
     def handle_timer(self):
         self.refresh_devices()
@@ -231,14 +245,21 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     def refresh_devices(self):
         devices = get_network_devices()
-        #add not registered devices
+        #add not registered and active devices
+        go_active = False
         for k,v in devices.items():
             if k not in self.devices:
                 self.devices[k] = v
-        #delete dead devices
+            else if not self.devices[k].active
+                self.active = True
+                go_active = True
+                self._write_config_for_device(self.devices[k])
+        if go_active:
+            self._write_hops()
+        #mark inactive devices
         for k in self.devices.keys():
             if k not in devices:
-                del self.devices[k]
+                self.devices[k].active = False
 
 
 
