@@ -173,6 +173,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         self.route = RouteHandler(self)
         self.dev = DeviceHandler(self)
         self.hop = HopHandler(self)
+		self.services = list()
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
@@ -256,10 +257,30 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
                 self._write_config_for_device(self.devices[k])
         if go_active:
             self._write_hops()
+			for s in services:
+				if s._running:
+					try:
+						s.stop()
+					except ExecutionError:
+						pass
+					try:
+						s.start()
+					except ExecutionError:
+						pass
+
         #mark inactive devices
         for k in self.devices.keys():
             if k not in devices:
                 self.devices[k].active = False
+
+	#hooks a service to the ip handler, so when
+	#a device is brought up one can restart the service
+	#that need to refresh their device list
+	def device_up_hook(self, serv):
+		if hasattr(serv, 'stop') and hasattr(serv, 'start')
+			services.append(serv)
+
+
 
 
 
