@@ -129,6 +129,18 @@ class DeviceHandler(SubHandler):
     def up(self, name):
         if name in self.parent.devices:
             call(self.device_template.render(dev=name, action='up'), shell=True)
+            #bring up all the route asocitaed to the device
+            for route in self.parent.devices[name].routes:
+                try:
+                    call(self.parent._render_config('route_add', dict(
+                            dev = name,
+                            net_addr = route.net_addr,
+                            prefix = route.prefix,
+                            gateway = route.gateway,
+                        )
+                    ), shell=True)
+                except ExecutionError, e:
+                    print e
         else:
             raise DeviceNotFoundError(name)
 
@@ -173,7 +185,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         self.route = RouteHandler(self)
         self.dev = DeviceHandler(self)
         self.hop = HopHandler(self)
-		self.services = list()
+        self.services = list()
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
@@ -194,7 +206,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
                 active_hops = dict()
                 for h in self.hops:
                     if h.device in self.devices:
-                        if self.devices[h.device].active
+                        if self.devices[h.device].active:
                             active_hops.append(h)
                 call(self._render_config('hop', dict(
                     hops = active_hops,
@@ -251,22 +263,22 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         for k,v in devices.items():
             if k not in self.devices:
                 self.devices[k] = v
-            else if not self.devices[k].active
+            elif not self.devices[k].active:
                 self.active = True
                 go_active = True
                 self._write_config_for_device(self.devices[k])
         if go_active:
             self._write_hops()
-			for s in services:
-				if s._running:
-					try:
-						s.stop()
-					except ExecutionError:
-						pass
-					try:
-						s.start()
-					except ExecutionError:
-						pass
+            for s in services:
+                if s._running:
+                    try:
+                        s.stop()
+                    except ExecutionError:
+                        pass
+                    try:
+                        s.start()
+                    except ExecutionError:
+                        pass
 
         #mark inactive devices
         for k in self.devices.keys():
@@ -277,7 +289,7 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 	#a device is brought up one can restart the service
 	#that need to refresh their device list
 	def device_up_hook(self, serv):
-		if hasattr(serv, 'stop') and hasattr(serv, 'start')
+		if hasattr(serv, 'stop') and hasattr(serv, 'start'):
 			services.append(serv)
 
 
