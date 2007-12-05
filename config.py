@@ -11,6 +11,12 @@ config_path = join(base_path, 'config')
 
 class Root(Handler):
 
+    def __init__(self):
+        f = file("/proc/sys/net/ipv4/ip_forward","w")
+        f.write("1")
+        f.close()
+        #self.ip.device_up_hook(self.dns)
+
     firewall = FirewallHandler(
         pickle_dir = join(pickle_path, 'firewall'),
         config_dir = '/tmp')
@@ -53,13 +59,14 @@ class Root(Handler):
         pickle_dir = join(pickle_path, 'vrrp'),
         config_dir = join(config_path, 'vrrp'),
         pid_dir    = '/var/run')
-    
+
     vpn = VpnHandler(
         pickle_dir = join(pickle_path, 'vpn'),
         config_dir = '/etc/tinc')
+
     #qos = QoSHandler(
-    #	pickle_dir = join(pickle_path, 'qos'),
-    #	config_dir = join(config_path, 'qos'))
+        #pickle_dir = join(pickle_path, 'qos'),
+        #config_dir = join(config_path, 'qos'))
 
 bind_addr = \
 (
