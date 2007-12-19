@@ -206,3 +206,134 @@ id : id dentro del grupo
 prio : prioridad router
 dev : device
 
+---------------------------------
+
+MODULO : FIREWALL
+
+para iniciar/parar el servicio:
+firewall start
+firewall stop
+(el stop elimina todas las reglas y deja todo abierto)
+
+Para agregar una regla:
+firewall rule add <CHAIN> <TARGET> [<SRC> <DST> <PROTOCOL> <SRC_PORT> <DST_PORT>]
+<CHAIN> puede ser: INPUT, OUTPUT o FORWARD
+<TARGET> puede ser: ACCEPT, REJECT o DROP
+<SRC> es la subred fuente (de la forma IP/máscara)
+<DST> es la subred destino (de la forma IP/máscara)
+<PROTOCOL> es: ICMP, UDP, TCP o ALL
+<SRC_PORT> es el puerto fuente (solo válido si <PROTOCOL> es UDP o TCP)
+<DST_PORT> es el puerto destino (solo válido si <PROTOCOL> es UDP o TCP)
+
+Para modificar una regla:
+firewall rule update <INDEX> [<CHAIN> <TARGET> <SRC> <DST> <PROTOCOL> <SRC_PORT> <DST_PORT>]
+<INDEX> es la posición de la regla (puede verse con 'firewall rule show')
+El resto de los parámetros son iguales que para agregar una regla.
+
+Para borrar una regla:
+firewall rule delete <INDEX>
+<INDEX> es la posición de la regla (puede verse con 'firewall rule show')
+
+Para borrar todas las reglas:
+firewall rule clear
+
+Para obtener información sobre una regla:
+firewall rule get <INDEX>
+<INDEX> es la posición de la regla (puede verse con 'firewall rule show')
+
+Para listar (obtener sobre todas) las reglas:
+firewall rule show
+
+---------------------------------
+
+MODULO : NAT
+
+para iniciar/parar el servicio:
+nat start
+nat stop
+(el stop elimina todas las reglas)
+
+Para agregar una redirección de un puerto:
+nat forward add <DEV> <PROTOCOL> <PORT> <DST> [<DST_PORT> <SRC_NET> <DST_NET>]
+<DEV> es el dispositivo de red a usar (por ej eth1)
+<PROTOCOL> es TCP o UDP
+<PORT> es el puerto entrante a redireccionar
+<DST> es la IP de destino a donde redireccionar el puerto
+<DST_PORT> es el puerto destino (si no se especifica, es el mismo que <PORT>)
+<SRC_NET> es la subred fuente para la cual aplicar le redireccionamiento (IP/máscara)
+<DST_NET> es la subred destino para la cual aplicar le redireccionamiento (IP/máscara)
+(si no se especifican subredes, se redirecciona todo el tráfico para el puerto)
+
+Para modificar una redirección de un puerto:
+nat forward update <INDEX> [<DEV> <PROTOCOL> <PORT> <DST> <DST_PORT> <SRC_NET> <DST_NET>]
+<INDEX> es la posición de la redirección (puede verse con 'nat forward show')
+El resto de los parámetros son iguales que para agregar una redirección.
+
+Para borrar una redirección:
+nat forward delete <INDEX>
+<INDEX> es la posición de la redirección (puede verse con 'nat forward show')
+
+Para borrar todas las redirecciones:
+nat forward clear
+
+Para obtener información sobre una redirección:
+nat forward get <INDEX>
+<INDEX> es la posición de la redirección (puede verse con 'nat forward show')
+
+Para listar (obtener información sobre todas) las redirecciones:
+nat forward show
+
+
+Para agregar un source nat:
+nat snat add <DEV> <SRC> [<SRC_NET>]
+<DEV> es el dispositivo de red a usar (por ej eth1)
+<SRC> dirección IP fuente a NATear
+<SRC_NET> es la subred fuente para la cual aplicar el source nat (IP/máscara)
+(si no se especifica subred, se redirecciona todo el tráfico de la IP fuente)
+
+Para modificar un snat:
+nat snat update <INDEX> [<DEV> <PROTOCOL> <PORT> <DST> <DST_PORT> <SRC_NET> <DST_NET>]
+<INDEX> es la posición del snat (puede verse con 'nat snat show')
+El resto de los parámetros son iguales que para agregar un snat.
+
+Para borrar un snat:
+nat snat delete <INDEX>
+<INDEX> es la posición del snat (puede verse con 'nat snat show')
+
+Para borrar todos los snat:
+nat snat clear
+
+Para obtener información sobre un snat:
+nat snat get <INDEX>
+<INDEX> es la posición del snat (puede verse con 'nat snat show')
+
+Para listar (obtener información sobre todos) los snat:
+nat snat show
+
+
+Para agregar un enmascaramiento (masquerade):
+nat masq add <DEV> <SRC_NET>
+<DEV> es el dispositivo de red a usar (por ej eth1)
+<SRC_NET> es la subred fuente para la cual aplicar el masq (IP/máscara)
+
+Para modificar un masq:
+nat masq update <INDEX> [<DEV> <DST_NET>]
+<INDEX> es la posición del snat (puede verse con 'nat masq show')
+El resto de los parámetros son iguales que para agregar un masq.
+
+Para borrar un masq:
+nat masq delete <INDEX>
+<INDEX> es la posición del masq (puede verse con 'nat masq show')
+
+Para borrar todos los masq:
+nat masq clear
+
+Para obtener información sobre un masq:
+nat masq get <INDEX>
+<INDEX> es la posición del masq (puede verse con 'nat masq show')
+
+Para listar (obtener información sobre todos) los masq:
+nat masq show
+
+
+
