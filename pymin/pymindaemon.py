@@ -43,8 +43,7 @@ class PyminDaemon(eventloop.EventLoop):
 
         See PyminDaemon class documentation for more info.
         """
-        log.debug(u'PyminDaemon(%s.%s, %s, %s)', root.__class__.__module__,
-                  root.__class__.__name__, bind_addr, timer)
+        log.debug(u'PyminDaemon(%r, %r, %r)', root, bind_addr, timer)
         # Create and bind socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -56,11 +55,11 @@ class PyminDaemon(eventloop.EventLoop):
         self.dispatcher = dispatcher.Dispatcher(root)
         # Signal handling
         def quit(signum, frame):
-            log.debug(u'PyminDaemon quit() handler: signal %s', signum)
+            log.debug(u'PyminDaemon quit() handler: signal %r', signum)
             log.info(u'Shutting down...')
             self.stop() # tell main event loop to stop
         def reload_config(signum, frame):
-            log.debug(u'PyminDaemon reload_config() handler: signal %s', signum)
+            log.debug(u'PyminDaemon reload_config() handler: signal %r', signum)
             log.info(u'Reloading configuration...')
             # TODO iterate handlers list propagating reload action
         signal.signal(signal.SIGINT, quit)
@@ -70,7 +69,7 @@ class PyminDaemon(eventloop.EventLoop):
     def handle(self):
         r"handle() -> None :: Handle incoming events using the dispatcher."
         (msg, addr) = self.file.recvfrom(65535)
-        log.debug(u'PyminDaemon.handle: message %r from %s', msg, addr)
+        log.debug(u'PyminDaemon.handle: message %r from %r', msg, addr)
         try:
             result = self.dispatcher.dispatch(unicode(msg, 'utf-8'))
             if result is not None:
@@ -88,7 +87,7 @@ class PyminDaemon(eventloop.EventLoop):
             response += u'0\n'
         else:
             response += u'%d\n%s' % (len(result), result)
-        log.debug(u'PyminDaemon.handle: response %r to %s', response, addr)
+        log.debug(u'PyminDaemon.handle: response %r to %r', response, addr)
         self.file.sendto(response.encode('utf-8'), addr)
 
     def handle_timer(self):

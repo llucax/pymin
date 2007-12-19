@@ -8,6 +8,7 @@ and translates commands to functions/objects/methods.
 """
 
 import re
+import logging ; log = logging.getLogger('pymin.dispatcher')
 
 __ALL__ = ('Error', 'HandlerError', 'CommandNotFoundError', 'Handler',
             'Dispatcher', 'handler', 'is_handler', 'get_help')
@@ -434,6 +435,7 @@ class Dispatcher:
 
         See Dispatcher class documentation for more info.
         """
+        log.debug(u'Dispatcher(%r)', root)
         self.root = root
 
     def dispatch(self, route):
@@ -445,28 +447,44 @@ class Dispatcher:
 
         route - *unicode* string with the command route.
         """
+        log.debug('Dispatcher.dispatch(%r)', route)
         command = list()
         (route, kwargs) = parse_command(route)
+        log.debug(u'Dispatcher.dispatch: route=%r, kwargs=%r', route, kwargs)
         if not route:
+            log.debug(u'Dispatcher.dispatch: command not specified')
             raise CommandNotSpecifiedError()
         handler = self.root
         while not is_handler(handler):
+            log.debug(u'Dispatcher.dispatch: handler=%r, route=%r',
+                        handler, route)
             if len(route) is 0:
                 if isinstance(handler, Handler):
+                    log.debug(u'Dispatcher.dispatch: command is a handler')
                     raise CommandIsAHandlerError(command)
+                log.debug(u'Dispatcher.dispatch: command not found')
                 raise CommandNotFoundError(command)
             command.append(route[0])
+            log.debug(u'Dispatcher.dispatch: command=%r', command)
             if route[0] == 'parent':
+                log.debug(u'Dispatcher.dispatch: is parent => not found')
                 raise CommandNotFoundError(command)
             if not hasattr(handler, route[0].encode('utf-8')):
                 if isinstance(handler, Handler) and len(command) > 1:
+                    log.debug(u'Dispatcher.dispatch: command not in handler')
                     raise CommandNotInHandlerError(command)
+                log.debug(u'Dispatcher.dispatch: command not found')
                 raise CommandNotFoundError(command)
             handler = getattr(handler, route[0].encode('utf-8'))
             route = route[1:]
+        log.debug(u'Dispatcher.dispatch: %r is a handler, calling it with '
+                    u'route=%r, kwargs=%r', handler, route, kwargs)
         try:
+            r = handler(*route, **kwargs)
+            log.debug(u'Dispatcher.dispatch: handler returned %s', r)
             return handler(*route, **kwargs)
         except TypeError, e:
+            log.debug(u'Dispatcher.dispatch: type error (%r)', e)
             m = args_re.match(unicode(e))
             if m:
                 (quant, n_ok, n_bad)  = m.groups()
@@ -477,17 +495,28 @@ class Dispatcher:
                 pl = ''
                 if n_ok > 1:
                     pl = 's'
-                raise WrongArgumentsError(handler, u'takes %s %s argument%s, '
+                e = WrongArgumentsError(handler, u'takes %s %s argument%s, '
                             '%s given' % (quant, n_ok, pl, n_bad))
+                log.debug(u'Dispatcher.dispatch: wrong arguments (%r)', e)
+                raise e
             m = kw_re.match(unicode(e))
             if m:
                 (kw,)  = m.groups()
-                raise WrongArgumentsError(handler,
+                e = WrongArgumentsError(handler,
                         u'got an unexpected keyword argument %s' % kw)
+                log.debug(u'Dispatcher.dispatch: wrong arguments (%r)', e)
+                raise e
+            log.debug(u'Dispatcher.dispatch: some other TypeError, re-raising')
             raise
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     @handler(u"test: Print all the arguments, return nothing")
     def test_func(*args):

@@ -1,6 +1,7 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 from os import path
+import logging ; log = logging.getLogger('pymin.services.dhcp')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
@@ -84,6 +85,7 @@ class DhcpHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler,
 
     def __init__(self, pickle_dir='.', config_dir='.'):
         r"Initialize DhcpHandler object, see class documentation for details."
+        log.debug(u'DhcpHandler(%r, %r)', pickle_dir, config_dir)
         self._persistent_dir = pickle_dir
         self._config_writer_cfg_dir = config_dir
         self._config_build_templates()
@@ -95,6 +97,12 @@ class DhcpHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler,
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     import os
 

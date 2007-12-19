@@ -8,6 +8,7 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
+import logging ; log = logging.getLogger('pymin.services.util')
 
 from pymin.dispatcher import Handler, handler, HandlerError, \
                                 CommandNotFoundError
@@ -16,13 +17,13 @@ from pymin.seqtools import Sequence
 #DEBUG = False
 DEBUG = True
 
-__ALL__ = ('Error', 'ReturnNot0Error', 'ExecutionError', 'ItemError',
-            'ItemAlreadyExistsError', 'ItemNotFoundError', 'ContainerError',
-            'ContainerNotFoundError', 'call', 'get_network_devices',
-            'Persistent', 'Restorable', 'ConfigWriter', 'ServiceHandler',
-            'RestartHandler', 'ReloadHandler', 'InitdHandler', 'SubHandler',
-            'DictSubHandler', 'ListSubHandler', 'ComposedSubHandler',
-            'ListComposedSubHandler', 'DictComposedSubHandler', 'Device','Address')
+__ALL__ = ('Error', 'ExecutionError', 'ItemError', 'ItemAlreadyExistsError',
+           'ItemNotFoundError', 'ContainerError', 'ContainerNotFoundError',
+           'call', 'get_network_devices', 'Persistent', 'Restorable',
+           'ConfigWriter', 'ServiceHandler', 'RestartHandler',
+           'ReloadHandler', 'InitdHandler', 'SubHandler', 'DictSubHandler',
+           'ListSubHandler', 'ComposedSubHandler', 'ListComposedSubHandler',
+           'DictComposedSubHandler', 'Device','Address')
 
 class Error(HandlerError):
     r"""
@@ -34,22 +35,6 @@ class Error(HandlerError):
     message - A descriptive error message.
     """
     pass
-
-class ReturnNot0Error(Error):
-    r"""
-    ReturnNot0Error(return_value) -> ReturnNot0Error instance.
-
-    A command didn't returned the expected 0 return value.
-
-    return_value - Return value returned by the command.
-    """
-
-    def __init__(self, return_value):
-        r"Initialize the object. See class documentation for more info."
-        self.return_value = return_value
-
-    def __unicode__(self):
-        return 'The command returned %d' % self.return_value
 
 class ExecutionError(Error):
     r"""
@@ -225,20 +210,17 @@ def get_peers():
 def call(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, close_fds=True, universal_newlines=True,
             **kw):
+    log.debug(u'call(%r)', command)
     if DEBUG:
-        if not isinstance(command, basestring):
-            command = ' '.join(command)
-        print 'Executing command:', command
+        log.debug(u'call: not really executing, DEBUG mode')
         return
     try:
-        print 'Executing command:', command
-        r = subprocess.call(command, stdin=stdin, stdout=stdout, stderr=stderr,
-                                universal_newlines=universal_newlines,
-                                close_fds=close_fds, **kw)
+        subprocess.check_call(command, stdin=stdin, stdout=stdout,
+                    stderr=stderr, close_fds=close_fds,
+                    universal_newlines=universal_newlines, **kw)
     except Exception, e:
+        log.debug(u'call: Execution error %r', e)
         raise ExecutionError(command, e)
-    if r is not 0:
-        raise ExecutionError(command, ReturnNot0Error(r))
 
 class Persistent:
     r"""Persistent([attrs[, dir[, ext]]]) -> Persistent.
@@ -295,14 +277,22 @@ class Persistent:
 
     def _dump_attr(self, attrname):
         r"_dump_attr() -> None :: Dump a specific variable to a pickle file."
+        fname = self._pickle_filename(attrname)
+        attr = getattr(self, attrname)
+        log.debug(u'Persistent._dump_attr(%r) -> file=%r, value=%r',
+                attrname, fname, attr)
         f = file(self._pickle_filename(attrname), 'wb')
-        pickle.dump(getattr(self, attrname), f, 2)
+        pickle.dump(attr, f, 2)
         f.close()
 
     def _load_attr(self, attrname):
         r"_load_attr() -> object :: Load a specific pickle file."
-        f = file(self._pickle_filename(attrname))
-        setattr(self, attrname, pickle.load(f))
+        fname = self._pickle_filename(attrname)
+        f = file(fname)
+        attr = pickle.load(f)
+        log.debug(u'Persistent._load_attr(%r) -> file=%r, value=%r',
+                attrname, fname, attr)
+        setattr(self, attrname, attr)
         f.close()
 
     def _pickle_filename(self, name):
@@ -346,18 +336,27 @@ class Restorable(Persistent):
 
     def _restore(self):
         r"_restore() -> bool :: Restore persistent data or create a default."
+        log.debug(u'Restorable._restore()')
         try:
+            log.debug(u'Restorable._restore: trying to load...')
             self._load()
+            log.debug(u'Restorable._restore: load OK')
             return True
         except IOError:
+            log.debug(u'Restorable._restore: load FAILED, making defaults: %r',
+                        self._restorable_defaults)
             for (k, v) in self._restorable_defaults.items():
                 setattr(self, k, v)
             # TODO tener en cuenta servicios que hay que levantar y los que no
             if hasattr(self, 'commit'):
+                log.debug(u'Restorable._restore: commit() found, commiting...')
                 self.commit()
                 return False
+            log.debug(u'Restorable._restore: dumping new defaults...')
             self._dump()
             if hasattr(self, '_write_config'):
+                log.debug(u'Restorable._restore: _write_config() found, '
+                            u'writing new config...')
                 self._write_config()
             return False
 
@@ -421,6 +420,7 @@ class ConfigWriter:
 
     def _config_build_templates(self):
         r"_config_writer_templates() -> None :: Build the template objects."
+        log.debug(u'ConfigWriter.build_templates()')
         if isinstance(self._config_writer_files, basestring):
             self._config_writer_files = (self._config_writer_files,)
         if not hasattr(self, '_config_writer_templates') \
@@ -445,6 +445,8 @@ class ConfigWriter:
                 vars = dict()
         elif callable(vars):
             vars = vars(template_name)
+        log.debug(u'ConfigWriter._render_config: rendering template %r with '
+                    u'vars=%r', template_name, vars)
         return self._config_writer_templates[template_name].render(**vars)
 
     def _get_config_path(self, template_name, config_filename=None):
@@ -475,8 +477,11 @@ class ConfigWriter:
                 vars = dict()
         elif callable(vars):
             vars = vars(template_name)
-        f = file(self._get_config_path(template_name, config_filename), 'w')
+        fname = self._get_config_path(template_name, config_filename)
+        f = file(fname, 'w')
         ctx = Context(f, **vars)
+        log.debug(u'ConfigWriter._write_single_config: rendering template '
+                    u'%r with vars=%r to file %r', template_name, vars, fname)
         self._config_writer_templates[template_name].render_context(ctx)
         f.close()
 
@@ -513,23 +518,31 @@ class ServiceHandler(Handler, Restorable):
 
     def __init__(self, start=None, stop=None, restart=None, reload=None):
         r"Initialize the object, see the class documentation for details."
+        log.debug(u'ServiceHandler(%r, %r, %r, %r)', start, stop, restart,
+                    reload)
         for (name, action) in dict(start=start, stop=stop, restart=restart,
                                                     reload=reload).items():
             if action is not None:
-                setattr(self, '_service_%s' % name, action)
+                attr_name = '_service_%s' % name
+                log.debug(u'ServiceHandler: using %r as %s', attr_name, action)
+                setattr(self, attr_name, action)
         self._persistent_attrs = list(self._persistent_attrs)
         self._persistent_attrs.append('_service_running')
         if '_service_running' not in self._restorable_defaults:
             self._restorable_defaults['_service_running'] = False
+        log.debug(u'ServiceHandler: restoring service configuration...')
         self._restore()
         if self._service_running:
+            log.debug(u'ServiceHandler: service was running, starting it...')
             self._service_running = False
             self.start()
 
     @handler(u'Start the service.')
     def start(self):
         r"start() -> None :: Start the service."
+        log.debug(u'ServiceHandler.start()')
         if not self._service_running:
+            log.debug(u'ServiceHandler.start: not running, starting it...')
             if callable(self._service_start):
                 self._service_start()
             else:
@@ -539,8 +552,10 @@ class ServiceHandler(Handler, Restorable):
 
     @handler(u'Stop the service.')
     def stop(self):
+        log.debug(u'ServiceHandler.stop()')
         r"stop() -> None :: Stop the service."
         if self._service_running:
+            log.debug(u'ServiceHandler.stop: running, stoping it...')
             if callable(self._service_stop):
                 self._service_stop()
             else:
@@ -551,6 +566,7 @@ class ServiceHandler(Handler, Restorable):
     @handler(u'Restart the service.')
     def restart(self):
         r"restart() -> None :: Restart the service."
+        log.debug(u'ServiceHandler.restart()')
         if callable(self._service_restart):
             self._service_restart()
         else:
@@ -561,7 +577,9 @@ class ServiceHandler(Handler, Restorable):
     @handler(u'Reload the service config (without restarting, if possible).')
     def reload(self):
         r"reload() -> None :: Reload the configuration of the service."
+        log.debug(u'ServiceHandler.reload()')
         if self._service_running:
+            log.debug(u'ServiceHandler.reload: running, reloading...')
             if callable(self._service_reload):
                 self._service_reload()
             else:
@@ -570,6 +588,7 @@ class ServiceHandler(Handler, Restorable):
     @handler(u'Tell if the service is running.')
     def running(self):
         r"reload() -> None :: Reload the configuration of the service."
+        log.debug(u'ServiceHandler.running() -> %r', self._service_running)
         if self._service_running:
             return 1
         else:
@@ -586,6 +605,7 @@ class RestartHandler(Handler):
     @handler(u'Restart the service (alias to stop + start).')
     def restart(self):
         r"restart() -> None :: Restart the service calling stop() and start()."
+        log.debug(u'RestartHandler.restart()')
         self.stop()
         self.start()
 
@@ -599,7 +619,9 @@ class ReloadHandler(Handler):
     @handler(u'Reload the service config (alias to restart).')
     def reload(self):
         r"reload() -> None :: Reload the configuration of the service."
+        log.debug(u'ReloadHandler.reload()')
         if hasattr(self, '_service_running') and self._service_running:
+            log.debug(u'ReloadHandler.reload: running, reloading...')
             self.restart()
 
 class InitdHandler(ServiceHandler):
@@ -628,6 +650,7 @@ class InitdHandler(ServiceHandler):
 
     def __init__(self, initd_name=None, initd_dir=None):
         r"Initialize the object, see the class documentation for details."
+        log.debug(u'InitdHandler(%r, %r)', initd_name, initd_dir)
         if initd_name is not None:
             self._initd_name = initd_name
         if initd_dir is not None:
@@ -639,12 +662,16 @@ class InitdHandler(ServiceHandler):
         ServiceHandler.__init__(self, **actions)
 
     def handle_timer(self):
+        # TODO documentation
+        log.debug(u'InitdHandler.handle_timer(): self=%r', self)
         p = subprocess.Popen(('pgrep', '-f', self._initd_name),
                                 stdout=subprocess.PIPE)
         pid = p.communicate()[0]
         if p.returncode == 0 and len(pid) > 0:
+            log.debug(u'InitdHandler.handle_timer: pid present, running')
             self._service_running = True
         else:
+            log.debug(u'InitdHandler.handle_timer: pid absent, NOT running')
             self._service_running = False
 
 class TransactionalHandler(Handler):
@@ -666,18 +693,28 @@ class TransactionalHandler(Handler):
     @handler(u'Commit the changes (reloading the service, if necessary).')
     def commit(self):
         r"commit() -> None :: Commit the changes and reload the service."
+        log.debug(u'TransactionalHandler.commit()')
         if hasattr(self, '_dump'):
+            log.debug(u'TransactionalHandler.commit: _dump() present, '
+                        u'dumping...')
             self._dump()
         unchanged = False
         if hasattr(self, '_write_config'):
+            log.debug(u'TransactionalHandler.commit: _write_config() present, '
+                        u'writing config...')
             unchanged = self._write_config()
         if not unchanged and hasattr(self, 'reload'):
+            log.debug(u'TransactionalHandler.commit: reload() present, and'
+                        u'configuration changed, reloading...')
             self.reload()
 
     @handler(u'Discard all the uncommited changes.')
     def rollback(self):
         r"rollback() -> None :: Discard the changes not yet commited."
+        log.debug(u'TransactionalHandler.reload()')
         if hasattr(self, '_load'):
+            log.debug(u'TransactionalHandler.reload: _load() present, loading'
+                        u'pickled values...')
             self._load()
 
 class ParametersHandler(Handler):
@@ -701,33 +738,41 @@ class ParametersHandler(Handler):
 
     def __init__(self, attr=None):
         r"Initialize the object, see the class documentation for details."
+        log.debug(u'ParametersHandler(%r)', attr)
         if attr is not None:
             self._parameters_attr = attr
 
     @handler(u'Set a service parameter.')
     def set(self, param, value):
         r"set(param, value) -> None :: Set a service parameter."
+        log.debug(u'ParametersHandler.set(%r, %r)', param, value)
         if not param in self.params:
+            log.debug(u'ParametersHandler.set: parameter not found')
             raise ParameterNotFoundError(param)
         self.params[param] = value
         if hasattr(self, '_update'):
+            log.debug(u'ParametersHandler.set: _update found, setting to True')
             self._update = True
 
     @handler(u'Get a service parameter.')
     def get(self, param):
         r"get(param) -> None :: Get a service parameter."
+        log.debug(u'ParametersHandler.get(%r)', param)
         if not param in self.params:
+            log.debug(u'ParametersHandler.get: parameter not found')
             raise ParameterNotFoundError(param)
         return self.params[param]
 
     @handler(u'List all available service parameters.')
     def list(self):
         r"list() -> tuple :: List all the parameter names."
+        log.debug(u'ParametersHandler.list()')
         return self.params.keys()
 
     @handler(u'Get all service parameters, with their values.')
     def show(self):
         r"show() -> (key, value) tuples :: List all the parameters."
+        log.debug(u'ParametersHandler.show()')
         return self.params.items()
 
 class SubHandler(Handler):
@@ -741,6 +786,7 @@ class SubHandler(Handler):
 
     def __init__(self, parent):
         r"Initialize the object, see the class documentation for details."
+        log.debug(u'SubHandler(%r)', parent)
         self.parent = parent
 
 class ContainerSubHandler(SubHandler):
@@ -770,6 +816,7 @@ class ContainerSubHandler(SubHandler):
 
     def __init__(self, parent, attr=None, cls=None):
         r"Initialize the object, see the class documentation for details."
+        log.debug(u'ContainerSubHandler(%r, %r, %r)', parent, attr, cls)
         self.parent = parent
         if attr is not None:
             self._cont_subhandler_attr = attr
@@ -791,17 +838,21 @@ class ContainerSubHandler(SubHandler):
     @handler(u'Add a new item')
     def add(self, *args, **kwargs):
         r"add(...) -> None :: Add an item to the list."
+        log.debug(u'ContainerSubHandler.add(%r, %r)', args, kwargs)
         item = self._cont_subhandler_class(*args, **kwargs)
         if hasattr(item, '_add'):
+            log.debug(u'ContainerSubHandler.add: _add found, setting to True')
             item._add = True
         key = item
         if isinstance(self._attr(), dict):
             key = item.as_tuple()[0]
         # do we have the same item? then raise an error
         if key in self._vattr():
+            log.debug(u'ContainerSubHandler.add: allready exists')
             raise ItemAlreadyExistsError(item)
         # do we have the same item, but logically deleted? then update flags
         if key in self._attr():
+            log.debug(u'ContainerSubHandler.add: was deleted, undeleting it')
             index = key
             if not isinstance(self._attr(), dict):
                 index = self._attr().index(item)
@@ -818,39 +869,51 @@ class ContainerSubHandler(SubHandler):
     @handler(u'Update an item')
     def update(self, index, *args, **kwargs):
         r"update(index, ...) -> None :: Update an item of the container."
+        log.debug(u'ContainerSubHandler.update(%r, %r, %r)',
+                    index, args, kwargs)
         # TODO make it right with metaclasses, so the method is not created
         # unless the update() method really exists.
-        # TODO check if the modified item is the same of an existing one
         if not isinstance(self._attr(), dict):
             index = int(index) # TODO validation
         if not hasattr(self._cont_subhandler_class, 'update'):
+            log.debug(u'ContainerSubHandler.update: update() not found, '
+                        u"can't really update, raising command not found")
             raise CommandNotFoundError(('update',))
         try:
             item = self._vattr()[index]
             item.update(*args, **kwargs)
             if hasattr(item, '_update'):
+                log.debug(u'ContainerSubHandler.update: _update found, '
+                            u'setting to True')
                 item._update = True
         except LookupError:
+            log.debug(u'ContainerSubHandler.update: item not found')
             raise ItemNotFoundError(index)
 
     @handler(u'Delete an item')
     def delete(self, index):
         r"delete(index) -> None :: Delete an item of the container."
+        log.debug(u'ContainerSubHandler.delete(%r)', index)
         if not isinstance(self._attr(), dict):
             index = int(index) # TODO validation
         try:
             item = self._vattr()[index]
             if hasattr(item, '_delete'):
+                log.debug(u'ContainerSubHandler.delete: _delete found, '
+                            u'setting to True')
                 item._delete = True
             else:
                 del self._attr()[index]
             return item
         except LookupError:
+            log.debug(u'ContainerSubHandler.delete: item not found')
             raise ItemNotFoundError(index)
 
     @handler(u'Remove all items (use with care).')
     def clear(self):
         r"clear() -> None :: Delete all items of the container."
+        log.debug(u'ContainerSubHandler.clear()')
+        # FIXME broken really, no _delete attribute is setted :S
         if isinstance(self._attr(), dict):
             self._attr.clear()
         else:
@@ -859,16 +922,19 @@ class ContainerSubHandler(SubHandler):
     @handler(u'Get information about an item')
     def get(self, index):
         r"get(index) -> item :: List all the information of an item."
+        log.debug(u'ContainerSubHandler.get(%r)', index)
         if not isinstance(self._attr(), dict):
             index = int(index) # TODO validation
         try:
             return self._vattr()[index]
         except LookupError:
+            log.debug(u'ContainerSubHandler.get: item not found')
             raise ItemNotFoundError(index)
 
     @handler(u'Get information about all items')
     def show(self):
         r"show() -> list of items :: List all the complete items information."
+        log.debug(u'ContainerSubHandler.show()')
         if isinstance(self._attr(), dict):
             return self._attr().values()
         return self._vattr()
@@ -883,6 +949,7 @@ class ListSubHandler(ContainerSubHandler):
     @handler(u'Get how many items are in the list')
     def len(self):
         r"len() -> int :: Get how many items are in the list."
+        log.debug(u'ListContainerSubHandler.len()')
         return len(self._vattr())
 
 class DictSubHandler(ContainerSubHandler):
@@ -895,6 +962,7 @@ class DictSubHandler(ContainerSubHandler):
     @handler(u'List all the items by key')
     def list(self):
         r"list() -> tuple :: List all the item keys."
+        log.debug(u'DictContainerSubHandler.list()')
         return self._attr().keys()
 
 class ComposedSubHandler(SubHandler):
@@ -938,6 +1006,8 @@ class ComposedSubHandler(SubHandler):
 
     def __init__(self, parent, cont=None, attr=None, cls=None):
         r"Initialize the object, see the class documentation for details."
+        log.debug(u'ComposedSubHandler(%r, %r, %r, %r)',
+                    parent, cont, attr, cls)
         self.parent = parent
         if cont is not None:
             self._comp_subhandler_cont = cont
@@ -964,19 +1034,24 @@ class ComposedSubHandler(SubHandler):
     @handler(u'Add a new item')
     def add(self, cont, *args, **kwargs):
         r"add(cont, ...) -> None :: Add an item to the list."
+        log.debug(u'ComposedSubHandler.add(%r, %r, %r)', cont, args, kwargs)
         if not cont in self._cont():
+            log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         item = self._comp_subhandler_class(*args, **kwargs)
         if hasattr(item, '_add'):
+            log.debug(u'ComposedSubHandler.add: _add found, setting to True')
             item._add = True
         key = item
         if isinstance(self._attr(cont), dict):
             key = item.as_tuple()[0]
         # do we have the same item? then raise an error
         if key in self._vattr(cont):
+            log.debug(u'ComposedSubHandler.add: allready exists')
             raise ItemAlreadyExistsError(item)
         # do we have the same item, but logically deleted? then update flags
         if key in self._attr(cont):
+            log.debug(u'ComposedSubHandler.add: was deleted, undeleting it')
             index = key
             if not isinstance(self._attr(cont), dict):
                 index = self._attr(cont).index(item)
@@ -990,6 +1065,8 @@ class ComposedSubHandler(SubHandler):
             else:
                 self._attr(cont).append(item)
         if hasattr(self._cont()[cont], '_update'):
+            log.debug(u"ComposedSubHandler.add: container's _update found, "
+                        u'setting to True')
             self._cont()[cont]._update = True
 
     @handler(u'Update an item')
@@ -997,46 +1074,66 @@ class ComposedSubHandler(SubHandler):
         r"update(cont, index, ...) -> None :: Update an item of the container."
         # TODO make it right with metaclasses, so the method is not created
         # unless the update() method really exists.
-        # TODO check if the modified item is the same of an existing one
+        log.debug(u'ComposedSubHandler.update(%r, %r, %r, %r)',
+                    cont, index, args, kwargs)
         if not cont in self._cont():
+            log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if not isinstance(self._attr(cont), dict):
             index = int(index) # TODO validation
         if not hasattr(self._comp_subhandler_class, 'update'):
+            log.debug(u'ComposedSubHandler.update: update() not found, '
+                        u"can't really update, raising command not found")
             raise CommandNotFoundError(('update',))
         try:
             item = self._vattr(cont)[index]
             item.update(*args, **kwargs)
             if hasattr(item, '_update'):
+                log.debug(u'ComposedSubHandler.update: _update found, '
+                            u'setting to True')
                 item._update = True
             if hasattr(self._cont()[cont], '_update'):
+                log.debug(u"ComposedSubHandler.add: container's _update found, "
+                            u'setting to True')
                 self._cont()[cont]._update = True
         except LookupError:
+            log.debug(u'ComposedSubHandler.update: item not found')
             raise ItemNotFoundError(index)
 
     @handler(u'Delete an item')
     def delete(self, cont, index):
         r"delete(cont, index) -> None :: Delete an item of the container."
+        log.debug(u'ComposedSubHandler.delete(%r, %r)', cont, index)
         if not cont in self._cont():
+            log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if not isinstance(self._attr(cont), dict):
             index = int(index) # TODO validation
         try:
             item = self._vattr(cont)[index]
             if hasattr(item, '_delete'):
+                log.debug(u'ComposedSubHandler.delete: _delete found, '
+                            u'setting to True')
                 item._delete = True
             else:
                 del self._attr(cont)[index]
             if hasattr(self._cont()[cont], '_update'):
+                log.debug(u"ComposedSubHandler.add: container's _update found, "
+                            u'setting to True')
                 self._cont()[cont]._update = True
             return item
         except LookupError:
+            log.debug(u'ComposedSubHandler.delete: item not found')
             raise ItemNotFoundError(index)
 
     @handler(u'Remove all items (use with care).')
     def clear(self, cont):
         r"clear(cont) -> None :: Delete all items of the container."
+        # FIXME broken really, no item or container _delete attribute is
+        #       setted :S
+        log.debug(u'ComposedSubHandler.clear(%r)', cont)
         if not cont in self._cont():
+            log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if isinstance(self._attr(cont), dict):
             self._attr(cont).clear()
@@ -1046,19 +1143,24 @@ class ComposedSubHandler(SubHandler):
     @handler(u'Get information about an item')
     def get(self, cont, index):
         r"get(cont, index) -> item :: List all the information of an item."
+        log.debug(u'ComposedSubHandler.get(%r, %r)', cont, index)
         if not cont in self._cont():
+            log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if not isinstance(self._attr(cont), dict):
             index = int(index) # TODO validation
         try:
             return self._vattr(cont)[index]
         except LookupError:
+            log.debug(u'ComposedSubHandler.get: item not found')
             raise ItemNotFoundError(index)
 
     @handler(u'Get information about all items')
     def show(self, cont):
         r"show(cont) -> list of items :: List all the complete items information."
+        log.debug(u'ComposedSubHandler.show(%r)', cont)
         if not cont in self._cont():
+            log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if isinstance(self._attr(cont), dict):
             return self._attr(cont).values()
@@ -1074,6 +1176,7 @@ class ListComposedSubHandler(ComposedSubHandler):
     @handler(u'Get how many items are in the list')
     def len(self, cont):
         r"len(cont) -> int :: Get how many items are in the list."
+        log.debug(u'ListComposedSubHandler.len(%r)', cont)
         if not cont in self._cont():
             raise ContainerNotFoundError(cont)
         return len(self._vattr(cont))
@@ -1088,12 +1191,19 @@ class DictComposedSubHandler(ComposedSubHandler):
     @handler(u'List all the items by key')
     def list(self, cont):
         r"list(cont) -> tuple :: List all the item keys."
+        log.debug(u'DictComposedSubHandler.list(%r)', cont)
         if not cont in self._cont():
             raise ContainerNotFoundError(cont)
         return self._attr(cont).keys()
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     import sys
 

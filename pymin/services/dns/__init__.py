@@ -3,6 +3,7 @@
 # TODO COMMENT
 from os import path
 from os import unlink
+import logging ; log = logging.getLogger('pymin.services.dns')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
@@ -105,6 +106,7 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     def __init__(self, pickle_dir='.', config_dir='.'):
         r"Initialize DnsHandler object, see class documentation for details."
+        log.debug(u'DnsHandler(%r, %r)', pickle_dir, config_dir)
         self._persistent_dir = pickle_dir
         self._config_writer_cfg_dir = config_dir
         self._update = False
@@ -123,10 +125,14 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     def _write_config(self):
         r"_write_config() -> None :: Generate all the configuration files."
+        log.debug(u'DnsHandler._write_config()')
         delete_zones = list()
         for a_zone in self.zones.values():
+            log.debug(u'DnsHandler._write_config: processing zone %s', a_zone)
             if a_zone._update or a_zone._add:
                 if not a_zone._add and self._service_running:
+                    log.debug(u'DnsHandler._write_config: zone updated and '
+                                u'the service is running, freezing zone')
                     call(('rndc', 'freeze', a_zone.name))
                 vars = dict(
                     zone = a_zone,
@@ -138,18 +144,22 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                                             self._zone_filename(a_zone), vars)
                 a_zone._update = False
                 if not a_zone._add and self._service_running:
+                    log.debug(u'DnsHandler._write_config: unfreezing zone')
                     call(('rndc', 'thaw', a_zone.name))
                 else :
                     self._update = True
                     a_zone._add = False
             if a_zone._delete:
                 #borro el archivo .zone
+                log.debug(u'DnsHandler._write_config: zone deleted, removing '
+                            u'the file %r', self._zone_filename(a_zone))
                 try:
                     self._update = True
                     unlink(self._zone_filename(a_zone))
                 except OSError:
                     #la excepcion pude darse en caso que haga un add de una zona y
                     #luego el del, como no hice commit, no se crea el archivo
+                    log.debug(u'DnsHandler._write_config: file not found')
                     pass
                 delete_zones.append(a_zone.name)
         #borro las zonas
@@ -164,18 +174,27 @@ class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
 
     # HACK!!!!
     def handle_timer(self):
+        log.debug(u'DnsHandler.handle_timer()')
         import subprocess
         p = subprocess.Popen(('pgrep', '-f', '/usr/sbin/named'),
                                 stdout=subprocess.PIPE)
         pid = p.communicate()[0]
         if p.returncode == 0 and len(pid) > 0:
+            log.debug(u'DnsHandler.handle_timer: pid present, running')
             self._service_running = True
         else:
+            log.debug(u'DnsHandler.handle_timer: pid absent, NOT running')
             self._service_running = False
 
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
 
     dns = DnsHandler();
 
