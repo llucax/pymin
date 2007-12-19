@@ -13,8 +13,8 @@ from pymin.dispatcher import Handler, handler, HandlerError, \
                                 CommandNotFoundError
 from pymin.seqtools import Sequence
 
-DEBUG = False
-#DEBUG = True
+#DEBUG = False
+DEBUG = True
 
 __ALL__ = ('Error', 'ReturnNot0Error', 'ExecutionError', 'ItemError',
             'ItemAlreadyExistsError', 'ItemNotFoundError', 'ContainerError',
