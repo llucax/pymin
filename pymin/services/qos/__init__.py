@@ -8,26 +8,56 @@ from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, SubHandler, call, \
                                 get_network_devices, ListComposedSubHandler, \
-                                DictComposedSubHandler
+                                DictComposedSubHandler, ExecutionError
 
 __ALL__ = ('QoSHandler',)
 
+class DeviceError(HandlerError):
+
+    def __init__(self, dev):
+        self.message = u'Devive error : "%s"' % dev
+
+
+class DeviceNotFoundError(DeviceError):
+
+    def __init__(self, dev):
+        self.message = u'Device not found : "%s"' % dev
+
+
 class ClassError(HandlerError):
 
-    def __init__(self, qosclass):
-        self.message = u'Class error : "%s"' % qosclass
+    def __init__(self, cls):
+        self.message = u'Class error : "%s"' % cls
 
 
 class ClassNotFoundError(ClassError):
 
-    def __init__(self, qosclass):
-        self.message = u'Class not found : "%s"' % qosclass
+    def __init__(self, cls):
+        self.message = u'Class not found : "%s"' % cls
 
 
 class ClassAlreadyExistsError(ClassError):
 
-    def __init__(self, qosclass):
-        self.message = u'Class already exists : "%s"' % qosclass
+    def __init__(self, cls):
+        self.message = u'Class already exists : "%s"' % cls
+
+
+class HostError(HandlerError):
+
+    def __init__(self, host):
+        self.message = u'Host error : "%s"' % host
+
+
+class HostNotFoundError(HostError):
+
+    def __init__(self, ip):
+        self.message = u'Host not found : "%s"' % host
+
+
+class HostAlreadyExistsError(HostError):
+
+    def __init__(self, ip):
+        self.message = u'Host already exists : "%s"' % host
 
 
 class Class(Sequence):
@@ -35,7 +65,7 @@ class Class(Sequence):
     def __init__(self, cid, rate=None):
         self.cid = cid
         self.rate = rate
-        self.hosts = list()
+        self.hosts = dict()
 
     def as_tuple(self):
         return (self.cid, self.rate)
@@ -52,40 +82,31 @@ class ClassHandler(Handler):
         self.parent = parent
 
     @handler('Adds a class : add <id> <device> <rate>')
-    def add(self, cid, dev, rate):
+    def add(self, dev, cid, rate):
         if not dev in self.parent.devices:
-            raise DeviceNotFoundError(device)
-        c = Class(cid, dev, rate)
+            raise DeviceNotFoundError(dev)
+
         try:
-            self.parent.classes.index(c)
-            raise ClassAlreadyExistsError(cid  + '->' + dev)
+            self.parent.devices[dev].classes[cid] = Class(cid, rate)
         except ValueError:
-            self.parent.classes.append(c)
+            raise ClassAlreadyExistsError(cid  + ' -> ' + dev)
 
     @handler(u'Deletes a class : delete <id> <device>')
-    def delete(self, cid, dev):
+    def delete(self, dev, cid):
         if not dev in self.parent.devices:
-            raise DeviceNotFoundError(device)
-        c = Class(cid, dev)
+            raise DeviceNotFoundError(dev)
+
         try:
-            self.parent.classes.remove(c)
-        except ValueError:
-            raise ClassNotFoundError(cid + '->' + dev)
+            del self.parent.devices[dev].classes[cid]
+        except KeyError:
+            raise ClassNotFoundError(cid + ' -> ' + dev)
 
     @handler(u'Lists classes : list <dev>')
-    def list(self, device):
+    def list(self, dev):
         try:
-            k = self.parent.classes.keys()
-        except ValueError:
-            k = list()
-        return k
-
-    @handler(u'Get information about all classes: show <dev>')
-    def show(self, device):
-        try:
-            k = self.parent.classes.values()
-        except ValueError:
-            k = list()
+            k = self.parent.devices[dev].classes.items()
+        except KeyError:
+            k = dict()
         return k
 
 
@@ -97,12 +118,37 @@ class Host(Sequence):
     def as_tuple(self):
         return (self.ip)
 
+    def __cmp__(self, other):
+        if self.ip == other.ip:
+            return 0
+        return cmp(id(self), id(other))
 
-class HostHandler(DictComposedSubHandler):
-    handler_help = u"Manage Hosts"
-    _comp_subhandler_cont = 'classes'
-    _comp_subhandler_attr = 'hosts'
-    _comp_subhandler_class = Host
+
+class HostHandler(SubHandler):
+
+    def __init__(self, parent):
+        self.parent = parent
+
+    @handler('Adds a host to a class : add <device> <class id> <ip>')
+    def add(self, dev, cid, ip):
+        if not dev in self.parent.devices:
+            raise DeviceNotFoundError(dev)
+
+        if not cid in self.parent.devices[dev].classes:
+            raise ClassNotFoundError(cid)
+
+        try:
+            self.parent.devices[dev].classes[cid].hosts[ip] = Host(ip)
+        except ValueError:
+            raise HostAlreadyExistsError(h  + ' -> ' + dev)
+
+    @handler(u'Lists hosts : list <dev> <class id>')
+    def list(self, dev, cid):
+        try:
+            k = self.parent.devices[dev].classes[cid].hosts.keys()
+        except KeyError:
+            k = dict()
+        return k
 
 
 class Device(Sequence):
@@ -110,7 +156,7 @@ class Device(Sequence):
     def __init__(self, name, mac):
         self.name = name
         self.mac = mac
-        self.classes = list()
+        self.classes = dict()
 
     def as_tuple(self):
         return (self.name, self.mac)
@@ -131,14 +177,20 @@ class DeviceHandler(SubHandler):
     @handler(u'Bring the device up')
     def up(self, name):
         if name in self.parent.devices:
-            call(self.device_template.render(dev=name, action='add'), shell=True)
+            try:
+                call(self.device_template.render(dev=name, action='add'), shell=True)
+            except ExecutionError:
+                pass
         else:
             raise DeviceNotFoundError(name)
 
     @handler(u'Bring the device down')
     def down(self, name):
         if name in self.parent.devices:
-            call(self.device_template.render(dev=name, action='del'), shell=True)
+            try:
+                call(self.device_template.render(dev=name, action='del'), shell=True)
+            except ExecutionError:
+                pass
         else:
             raise DeviceNotFoundError(name)
 
@@ -155,13 +207,11 @@ class QoSHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     handler_help = u"Manage QoS devices, classes and hosts"
 
-    _persistent_attrs = ('devices','classes','hosts')
+    _persistent_attrs = ('devices')
 
     _restorable_defaults = dict(
                             devices=dict((dev, Device(dev, mac))
-                                for (dev, mac) in get_network_devices().items()),
-                            classes = list(),
-                            hosts = list()
+                                for (dev, mac) in get_network_devices().items())
                             )
 
     _config_writer_files = ('device', 'class_add', 'class_del', 'host_add')
@@ -176,28 +226,43 @@ class QoSHandler(Restorable, ConfigWriter, TransactionalHandler):
         self._restore()
         self._write_config()
         self.dev = DeviceHandler(self)
-        self.classes = ClassHandler(self)
-        self.hosts = HostHandler(self)
+        self.cls = ClassHandler(self)
+        self.host = HostHandler(self)
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
-            call(self._render_config('device', dict(dev=device.name, action='del')), shell=True)
-            call(self._render_config('device', dict(dev=device.name, action='add')), shell=True)
-            for qosclass in device.classes:
-                call(self._render_config('class_add', dict(
+            try:
+                call(self._render_config('device', dict(dev=device.name, action='del')), shell=True)
+            except ExecutionError:
+                pass
+
+            try:
+                call(self._render_config('device', dict(dev=device.name, action='add')), shell=True)
+            except ExecutionError:
+                pass
+
+            for cls in device.classes.values():
+                try:
+                    call(self._render_config('class_add', dict(
                         dev = device.name,
-                        cid = qosclass.cid,
-                        rate = qosclass.rate
-                    )
-                ), shell=True)
-                for host in qosclass.hosts:
-                    call(self._render_config('host_add', dict(
-                            dev = device.name,
-                            ip = host.ip,
-                            cid = qosclass.cid
+                        cid = cls.cid,
+                        rate = cls.rate
                         )
                     ), shell=True)
+                except ExecutionError:
+                    pass
+
+                for host in cls.hosts.values():
+                    try:
+                        call(self._render_config('host_add', dict(
+                            dev = device.name,
+                            ip = host.ip,
+                            cid = cls.cid
+                            )
+                        ), shell=True)
+                    except ExecutionError:
+                        pass
 
     def handle_timer(self):
         self.refresh_devices()
