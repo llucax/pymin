@@ -1,1 +1,1 @@
-tc filter add dev ${dev} protocol ip u32 match ip src ${ip} flowid 1:{id}
+tc filter add dev ${dev} protocol ip u32 match ip src ${ip} flowid 1:${cid}

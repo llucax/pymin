@@ -92,12 +92,21 @@ class Route(Sequence):
         self.net_addr = net_addr
         self.prefix = prefix
         self.gateway = gateway
+
     def update(self, net_addr=None, prefix=None, gateway=None):
         if net_addr is not None: self.net_addr = net_addr
         if prefix is not None: self.prefix = prefix
         if gateway is not None: self.gateway = gateway
+
     def as_tuple(self):
         return(self.net_addr, self.prefix, self.gateway)
+
+    def __cmp__(self, other):
+        if self.net_addr == other.net_addr \
+                and self.prefix == other.prefix \
+                and self.gateway == other.gateway:
+            return 0
+        return cmp(id(self), id(other))
 
 class RouteHandler(ListComposedSubHandler):
     handler_help = u"Manage IP routes"
@@ -105,6 +114,29 @@ class RouteHandler(ListComposedSubHandler):
     _comp_subhandler_attr = 'routes'
     _comp_subhandler_class = Route
 
+    @handler(u'Adds a route to : ip route add <net_addr> <prefix> <gateway> [device]')
+    def add(self, net_addr, prefix, gateway, dev=None):
+        if dev is not None:
+            ListComposedSubHandler.add(self, dev, net_addr, prefix, gateway)
+        else:
+            r = Route(net_addr, prefix, gateway)
+            if not r in self.parent.no_device_routes:
+                self.parent.no_device_routes.append(r)
+
+    @handler("Deletes a route : ip route delete <route_number_in_show> [dev]")
+    def delete(self, index, dev=None):
+        if dev is not None:
+            ListComposedSubHandler.delete(self, dev, index)
+        else:
+            i = int(index)
+            del self.parent.no_device_routes[i]
+
+    @handler("Shows routes : ip route show [dev]")
+    def show(self, dev=None):
+        if dev is not None:
+            return ListComposedSubHandler.show(self, dev)
+        else:
+            return self.parent.no_device_routes
 
 class AddressHandler(DictComposedSubHandler):
     handler_help = u"Manage IP addresses"
@@ -129,6 +161,20 @@ class DeviceHandler(SubHandler):
     def up(self, name):
         if name in self.parent.devices:
             call(self.device_template.render(dev=name, action='up'), shell=True)
+            #bring up all the route asocitaed to the device
+            for route in self.parent.devices[name].routes:
+                try:
+                    call(self.parent._render_config('route_add', dict(
+                            dev = name,
+                            net_addr = route.net_addr,
+                            prefix = route.prefix,
+                            gateway = route.gateway,
+                        )
+                    ), shell=True)
+                except ExecutionError, e:
+                    print e
+            self.parent._bring_up_no_dev_routes()
+            self.parent._restart_services()
         else:
             raise DeviceNotFoundError(name)
 
@@ -136,6 +182,8 @@ class DeviceHandler(SubHandler):
     def down(self, name):
         if name in self.parent.devices:
             call(self.device_template.render(dev=name, action='down'), shell=True)
+            self.parent._bring_up_no_dev_routes()
+            self.parent._restart_services()
         else:
             raise DeviceNotFoundError(name)
 
@@ -151,11 +199,12 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     handler_help = u"Manage IP devices, addresses, routes and hops"
 
-    _persistent_attrs = ('devices','hops')
+    _persistent_attrs = ('devices','hops','no_device_routes')
 
     _restorable_defaults = dict(
                             devices=get_network_devices(),
-                            hops = list()
+                            hops = list(),
+                            no_device_routes = list(),
                             )
 
     _config_writer_files = ('device', 'ip_add', 'ip_del', 'ip_flush',
@@ -173,57 +222,87 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
         self.route = RouteHandler(self)
         self.dev = DeviceHandler(self)
         self.hop = HopHandler(self)
+        self.no_device_routes = list()
+        self.services = list()
 
     def _write_config(self):
         r"_write_config() -> None :: Execute all commands."
         for device in self.devices.values():
+            if device.active:
+                self._write_config_for_device(device)
+        self._bring_up_no_dev_routes()
+        self._write_hops()
+
+    def _bring_up_no_dev_routes(self):
+        for route in self.no_device_routes:
             try:
-                call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+                call(self._render_config('route_add', dict(
+                        dev = None,
+                        net_addr = route.net_addr,
+                        prefix = route.prefix,
+                        gateway = route.gateway,
+                    )
+                ), shell=True)
             except ExecutionError, e:
                 print e
-            try:
-                call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
-            except ExecutionError, e:
-                print e
-            for address in device.addrs.values():
-                broadcast = address.broadcast
-                if broadcast is None:
-                    broadcast = '+'
-                try:
-                    call(self._render_config('ip_add', dict(
-                        dev = device.name,
-                        addr = address.ip,
-                        netmask = address.netmask,
-                        peer = address.peer,
-                        broadcast = broadcast,
-                        )
-                    ), shell=True)
-                except ExecutionError, e:
-                      print e
-            for route in device.routes:
-                try:
-                    call(self._render_config('route_add', dict(
-                            dev = device.name,
-                            net_addr = route.net_addr,
-                            prefix = route.prefix,
-                            gateway = route.gateway,
-                        )
-                     ), shell=True)
-                except ExecutionError, e:
-                    print e
+
+    def _write_hops(self):
+        r"_write_hops() -> None :: Execute all hops."
         if self.hops:
             try:
                 call('ip route del default', shell=True)
             except ExecutionError, e:
                 print e
             try:
+                #get hops for active devices
+                active_hops = dict()
+                for h in self.hops:
+                    if h.device in self.devices:
+                        if self.devices[h.device].active:
+                            active_hops.append(h)
                 call(self._render_config('hop', dict(
-                    hops = self.hops,
+                    hops = active_hops,
                         )
                 ), shell=True)
             except ExecutionError, e:
                 print e
 
+    def _write_config_for_device(self, device):
+        r"_write_config_for_device(self, device) -> None :: Execute all commands for a device."
+        try:
+            call(self._render_config('route_flush', dict(dev=device.name)), shell=True)
+        except ExecutionError, e:
+            print e
+        try:
+            call(self._render_config('ip_flush', dict(dev=device.name)), shell=True)
+        except ExecutionError, e:
+            print e
+        for address in device.addrs.values():
+            broadcast = address.broadcast
+            if broadcast is None:
+                broadcast = '+'
+            try:
+                call(self._render_config('ip_add', dict(
+                    dev = device.name,
+                    addr = address.ip,
+                    netmask = address.netmask,
+                    peer = address.peer,
+                    broadcast = broadcast,
+                    )
+                ), shell=True)
+            except ExecutionError, e:
+                print e
+        for route in device.routes:
+            try:
+                call(self._render_config('route_add', dict(
+                        dev = device.name,
+                        net_addr = route.net_addr,
+                        prefix = route.prefix,
+                        gateway = route.gateway,
+                    )
+                ), shell=True)
+            except ExecutionError, e:
+                print e
 
     def handle_timer(self):
         self.refresh_devices()
@@ -231,14 +310,49 @@ class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
     def refresh_devices(self):
         devices = get_network_devices()
-        #add not registered devices
+        #add not registered and active devices
+        go_active = False
         for k,v in devices.items():
             if k not in self.devices:
                 self.devices[k] = v
-        #delete dead devices
+            elif not self.devices[k].active:
+                self.active = True
+                go_active = True
+                self._write_config_for_device(self.devices[k])
+        if go_active:
+            self._write_hops()
+            self._bring_up_no_dev_routes()
+            self._restart_services()
+
+        #mark inactive devices
         for k in self.devices.keys():
+            go_down = False
             if k not in devices:
-                del self.devices[k]
+                self.devices[k].active = False
+                go_down = True
+            if go_down:
+                self._bring_up_no_dev_routes()
+
+    def _restart_services(self):
+        for s in self.services:
+            if s._service_running:
+                try:
+                     s.stop()
+                except ExecutionError:
+                    pass
+                try:
+                    s.start()
+                except ExecutionError:
+                    pass
+
+	#hooks a service to the ip handler, so when
+	#a device is brought up one can restart the service
+	#that need to refresh their device list
+    def device_up_hook(self, serv):
+        if hasattr(serv, 'stop') and hasattr(serv, 'start'):
+            self.services.append(serv)
+
+
 
 
 
