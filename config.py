@@ -19,6 +19,12 @@ config_path = join(base_path, 'config')
 
 class Root(Handler):
 
+    def __init__(self):
+        f = file("/proc/sys/net/ipv4/ip_forward","w")
+        f.write("1")
+        f.close()
+        #self.ip.device_up_hook(self.dns)
+
     firewall = FirewallHandler(
         pickle_dir = join(pickle_path, 'firewall'),
         config_dir = join(config_path, 'firewall'))
