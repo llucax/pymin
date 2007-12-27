@@ -6,6 +6,7 @@ from signal import SIGTERM
 from subprocess import Popen, PIPE
 import logging ; log = logging.getLogger('pymin.services.vrrp')
 
+from pymin import procman
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, TransactionalHandler, \
@@ -14,6 +15,8 @@ from pymin.services.util import Restorable, TransactionalHandler, \
 
 __ALL__ = ('VrrpHandler',)
 
+# FIXME the the command should not use new parameters unless commit where called
+#       i.e. integrate commit with procman to update internal procman parameters.
 class VrrpHandler(Restorable, ParametersHandler, ReloadHandler, RestartHandler,
                         ServiceHandler, TransactionalHandler):
 
@@ -22,39 +25,45 @@ class VrrpHandler(Restorable, ParametersHandler, ReloadHandler, RestartHandler,
     _persistent_attrs = ['params']
 
     _restorable_defaults = dict(
-                            params = dict( ipaddress='192.168.0.1',
-                                            id = '1',
-                                            prio = '',
-                                            dev = 'eth0',
-                                    ),
-                            )
+        params = dict(
+                ipaddress = '192.168.0.1',
+                id        = '1',
+                prio      = '',
+                dev       = 'eth0',
+                persist   = True,
+            ),
+        )
+
+    @property
+    def _command(self):
+        command = ['vrrpd', '-i', self.params['dev'], '-v', self.params['id']]
+        if self.params['prio']:
+            command.extend(('-p', self.params['prio']))
+        command.append(self.params['ipaddress'])
+        return command
 
     def _service_start(self):
         log.debug(u'VrrpHandler._service_start()')
-        if self.params['prio'] != '':
-            call(('vrrp', '-i', self.params['dev'], '-v', self.params['id'],
-                    '-p', self.params['prio'], self.params['ipaddress']))
-        else:
-            call(('vrrp', '-i', self.params['dev'], '-v', self.params['id'], \
-                    self.params['ipaddress']))
+        procinfo = procman.get('vrrp')
+        procinfo.command = self._command
+        procinfo.persist = self.params['persist']
+        procman.start('vrrp')
 
     def _service_stop(self):
         log.debug(u'VrrpHandler._service_stop()')
-        try:
-            pid_filename = 'vrrpd_%(dev)s_%(id)s.pid' % self.params
-            log.debug(u'VrrpHandler._service_stop: getting pid from %r',
-                        pid_filename)
-            pid = file(path.join(self._pid_dir, pid_filename )).read()
-            pid = int(pid.strip())
-            log.debug(u'VrrpHandler._service_stop: killing pid %r', pid)
-            os.kill(pid, SIGTERM)
-        except (IOError, OSError), e:
-            log.debug(u'VrrpHandler._service_stop: error %r', e)
+        procman.stop('vrrp')
+
+    def _service_restart(self):
+        procinfo = procman.get('vrrp')
+        procinfo.command = self._command
+        procinfo.persist = self.params['persist']
+        procman.restart('vrrp')
 
     def __init__(self, pickle_dir='.', config_dir='.', pid_dir='.'):
         log.debug(u'VrrpHandler(%r, %r, $r)', pickle_dir, config_dir, pid_dir)
         self._persistent_dir = pickle_dir
         self._pid_dir = pid_dir
+        procman.register('vrrp', None)
         ServiceHandler.__init__(self)
 
 
