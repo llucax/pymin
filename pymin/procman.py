@@ -4,6 +4,7 @@ import os
 import errno
 import signal
 import subprocess
+import logging ; log = logging.getLogger('pymin.procman')
 
 __ALL__ = ('ProcessManager', 'manager', 'register', 'unregister', 'call',
            'start', 'stop', 'kill', 'get', 'has', 'sigchild_handler')
@@ -32,6 +33,7 @@ class ProcessInfo:
         self.restart()
     def restart(self):
         self.clear()
+        log.debug(u'ProcessInfo.restart(): executing %s', self.command)
         self.process = subprocess.Popen(self.command, *self.args, **self.kw)
         self.running = True
     def stop(self):
@@ -44,6 +46,8 @@ class ProcessInfo:
             # Stop it
             self.kill(signal.SIGTERM)
     def kill(self, signum):
+        log.debug(u'ProcessInfo.kill(): killing pid %s with signal %s',
+                      self.process.pid, signum)
         assert self.process is not None
         os.kill(self.process.pid, signum)
         self.signal = signum
@@ -61,13 +65,17 @@ class ProcessManager:
         self.services = dict()
         self.namemap = dict()
         self.pidmap = dict()
+        log.debug(u'ProcessManager()')
 
     def register(self, name, command, callback=None, persist=False,
                        *args, **kw):
+        log.debug(u'ProcessManager.register(%s, %s, %s, %s, %s, %s)',
+                      name, command, callback, persist, args, kw)
         self.services[name] = ProcessInfo(name, command, callback, persist,
                                           args, kw)
 
     def unregister(self, name):
+        log.debug(u'ProcessManager.unregister(%s)', name)
         del self.services[name]
 
     def _call(self, pi):
@@ -75,19 +83,23 @@ class ProcessManager:
         self.namemap[pi.name] = self.pidmap[pi.process.pid] = pi
 
     def call(self, name, command, callback=None, persist=False, *args, **kw):
+        log.debug(u'ProcessManager.call(%s, %s, %s, %s, %s, %s)',
+                      name, command, callback, persist, args, kw)
         pi = ProcessInfo(name, command, callback, persist, args, kw)
         self._call(pi)
 
     def start(self, name):
+        log.debug(u'ProcessManager.start(%s)', name)
         assert name not in self.namemap
         self._call(self.services[name])
 
     def stop(self, name):
+        log.debug(u'ProcessManager.stop(%s)', name)
         assert name in self.namemap
         self.namemap[name].stop()
 
     def restart(self, name):
-        logging.debug(u'ProcessManager.restart(%s)', name)
+        log.debug(u'ProcessManager.restart(%s)', name)
         if name in self.namemap:
             self.namemap[name].stop()
             self.namemap[name].wait()
@@ -96,31 +108,48 @@ class ProcessManager:
             self.namemap[name].start()
 
     def kill(self, name, signum):
+        log.debug(u'ProcessManager.kill(%s, %s)', name, signum)
         assert name in self.namemap
         self.namemap[name].kill(name, stop)
 
     def sigchild_handler(self, signum, stack_frame=None):
+        log.debug(u'ProcessManager.sigchild_handler(%s)', signum)
         try:
             (pid, status) = os.waitpid(-1, os.WNOHANG)
         except OSError, e:
+            log.debug(u'ProcessManager.sigchild_handler(): OSError')
             if e.errno is errno.ECHILD:
+                log.debug(u'ProcessManager.sigchild_handler(): OSError ECHILD')
                 return
             raise
+        log.debug(u'ProcessManager.sigchild_handler: pid=%s, status=%s',
+                      pid, status)
         while pid:
             if pid in self.pidmap:
                 p = self.pidmap[pid]
                 p.process.returncode = status
                 if p.callback is not None:
+                    log.debug(u'ProcessManager.sigchild_handler: '
+                                  u'calling %s(%s)', p.callback.__name__, p)
                     p.callback(self, p)
                 if p.dont_run or not p.persist or p.error_count >= p.max_errors:
+                    log.debug(u"ProcessManager.sigchild_handler: can't "
+                            u'persist, dont_run=%s, persist=%s, error_cout=%s, '
+                            u'max_errors=%s', p.dont_run, p.persist,
+                            p.error_count, p.max_errors)
                     del self.namemap[p.name]
                     del self.pidmap[pid]
                     p.clear()
                 else:
+                    log.debug(u'ProcessManager.sigchild_handler: persist')
                     if p.process.returncode == 0:
                         p.error_count = 0
+                        log.debug(u'ProcessManager.sigchild_handler: '
+                                u'return OK, resetting error_count')
                     else:
                         p.error_count += 1
+                        log.debug(u'ProcessManager.sigchild_handler: return'
+                                u'not 0, error_count + 1 = %s', p.error_count)
                     del self.pidmap[pid]
                     p.restart()
                     self.pidmap[p.process.pid] = p
@@ -158,6 +187,15 @@ class ProcessManager:
 
     def __contains__(self, name):
         return self.has(name)
+
+
+if __name__ == '__main__':
+    logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(levelname)-8s %(message)s',
+        datefmt = '%H:%M:%S',
+    )
+
 
 # Globals
 manager = ProcessManager()
