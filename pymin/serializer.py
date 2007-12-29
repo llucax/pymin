@@ -29,7 +29,7 @@ def serialize(obj, output=None):
 
 if __name__ == '__main__':
 
-    from seqtools import Sequence
+    from pymin.seqtools import Sequence
 
     class Host(Sequence):
         r"""Host(name, ip, mac) -> Host instance :: Class representing a host.
