@@ -1,0 +1,6 @@
+First, you need to install these Python modules:
+mako
+formencode
+
+Then, we should make an installer =)
+
