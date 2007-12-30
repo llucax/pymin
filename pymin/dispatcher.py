@@ -163,9 +163,9 @@ def handler(help):
 
     help - Help string for the handler.
     """
+    if not help:
+        raise TypeError("'help' should not be empty")
     def wrapper(f):
-        if not help:
-            raise TypeError("'help' should not be empty")
         f._dispatcher_handler = True
         f.handler_help = help
         return f
