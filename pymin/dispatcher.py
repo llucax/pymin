@@ -482,7 +482,7 @@ class Dispatcher:
         try:
             r = handler(*route, **kwargs)
             log.debug(u'Dispatcher.dispatch: handler returned %s', r)
-            return handler(*route, **kwargs)
+            return r
         except TypeError, e:
             log.debug(u'Dispatcher.dispatch: type error (%r)', e)
             m = args_re.match(unicode(e))
