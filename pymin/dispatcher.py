@@ -7,6 +7,7 @@ It's based on Zope or Cherrypy dispatching (but implemented from the scratch)
 and translates commands to functions/objects/methods.
 """
 
+import re
 import inspect
 import logging ; log = logging.getLogger('pymin.dispatcher')
 
@@ -56,18 +57,49 @@ class CommandError(Error):
         return u'Error in command "%s".' % u' '.join(self.command)
 
 class WrongArgumentsError(CommandError):
-    r"""WrongArgumentsError(handler, message) -> WrongArgumentsError instance.
+    r"""WrongArgumentsError(handler, error) -> WrongArgumentsError instance.
 
     This exception is raised when an empty command string is received.
     """
 
-    def __init__(self, handler, message):
+    def __init__(self, handler, error):
         r"Initialize the object, see class documentation for more info."
         self.handler = handler
-        self.message = message
+        self.error = error
+
+    args_re = re.compile(r'\w+\(\) takes (.+) (\d+) \w+ \((\d+) given\)')
+
+    extra_kw_re = re.compile(r'\w+\(\) got an unexpected keyword argument (.+)')
+
+    dup_kw_re = re.compile(r'\w+\(\) got multiple values for keyword argument '
+                            r"'(.+)'")
+
+    def format(self):
+        r"format() -> unicode - Format a TypeError to adapt it to a command."
+        m = self.args_re.match(unicode(self.error))
+        if m:
+            (quant, n_ok, n_bad)  = m.groups()
+            n_ok = int(n_ok)
+            n_bad = int(n_bad)
+            n_ok -= 1
+            n_bad -= 1
+            pl = ''
+            if n_ok != 1:
+                pl = 's'
+            return u'takes %s %s argument%s, %s given' \
+                        % (quant, n_ok, pl, n_bad)
+        m = self.extra_kw_re.match(unicode(self.error))
+        if m:
+            (kw,)  = m.groups()
+            return u'got an unexpected keyword argument %s' % kw
+        m = self.dup_kw_re.match(unicode(self.error))
+        if m:
+            (kw,)  = m.groups()
+            return u'got multiple values for argument %s' % kw
+        return u'got wrong arguments'
 
     def __unicode__(self):
-        return u'Command "%s" %s.' % (self.handler.__name__, self.message)
+        return u'Command "%s" %s.' % (self.handler.__name__, self.format())
 
 class CommandNotSpecifiedError(CommandError):
     r"""CommandNotSpecifiedError() -> CommandNotSpecifiedError instance.
