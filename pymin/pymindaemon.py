@@ -10,6 +10,7 @@ command-line.
 
 import signal
 import socket
+import formencode
 import logging ; log = logging.getLogger('pymin.pymindaemon')
 
 from pymin.dispatcher import handler
@@ -37,6 +38,34 @@ class PyminDaemon(eventloop.EventLoop):
             def test(self, *args):
                 print 'test:', args
     >>> PyminDaemon(Root(), ('', 9999)).run()
+
+    The daemon then will be listening to messages to UDP port 9999. Messages
+    will be dispatcher throgh the pymin.dispatcher mechanism. If all goes ok,
+    an OK response is sent. If there was a problem, an ERROR response is sent.
+
+    The general syntax of responses is::
+
+        (OK|ERROR) LENGTH
+        CSV MESSAGE
+
+    So, first is a response code (OK or ERROR), then it comes the length of
+    the CSV MESSAGE (the bufer needed to receive the rest of the message).
+
+    CSV MESSAGE is the body of the response, which it could be void (if lenght
+    is 0), a simple string (a CVS with only one column and row), a single row
+    or a full "table" (a CSV with multiple rows and columns).
+
+    There are 2 kind of errors considered "normal": dispatcher.Error and
+    formencode.Invalid. In general, response bodies of errors are simple
+    strings, except, for example, for formencode.Invalid errors where an
+    error_dict is provided. In that case the error is a "table", where the
+    first colunm is the name of an invalid argument, and the second is the
+    description of the error for that argument. Any other kind of exception
+    raised by the handlers will return an ERROR response with the description
+    "Internal server error".
+
+    All messages (requests and responses) should be UTF-8 encoded and the CVS
+    responses are formated in "Excel" format, as known by the csv module.
     """
 
     def __init__(self, root, bind_addr=('', 9999), timer=1):
@@ -81,23 +110,27 @@ class PyminDaemon(eventloop.EventLoop):
         r"handle() -> None :: Handle incoming events using the dispatcher."
         (msg, addr) = self.file.recvfrom(65535)
         log.debug(u'PyminDaemon.handle: message %r from %r', msg, addr)
+        response = u'ERROR'
         try:
             result = self.dispatcher.dispatch(unicode(msg, 'utf-8'))
             if result is not None:
                 result = serializer.serialize(result)
-            response = u'OK '
+            response = u'OK'
         except dispatcher.Error, e:
             result = unicode(e) + u'\n'
-            response = u'ERROR '
+        except formencode.Invalid, e:
+            if e.error_dict:
+                result = serializer.serialize(e.error_dict)
+            else:
+                result = unicode(e) + u'\n'
         except Exception, e:
             import traceback
             result = u'Internal server error\n'
-            response = u'ERROR '
             log.exception(u'PyminDaemon.handle: unhandled exception')
         if result is None:
-            response += u'0\n'
+            response += u' 0\n'
         else:
-            response += u'%d\n%s' % (len(result), result)
+            response += u' %d\n%s' % (len(result), result)
         log.debug(u'PyminDaemon.handle: response %r to %r', response, addr)
         self.file.sendto(response.encode('utf-8'), addr)
 
@@ -126,12 +159,20 @@ if __name__ == '__main__':
         datefmt = '%H:%M:%S',
     )
 
+    class Scheme(formencode.Schema):
+        mod = formencode.validators.OneOf(['upper', 'lower'], if_empty='lower')
+        ip = formencode.validators.CIDR
+
     class Root(dispatcher.Handler):
         @handler(u"Print all the arguments, return nothing.")
         def test(self, *args):
             print 'test:', args
         @handler(u"Echo the message passed as argument.")
-        def echo(self, message):
+        def echo(self, message, mod=None, ip=None):
+            vals = Scheme.to_python(dict(mod=mod, ip=ip))
+            mod = vals['mod']
+            ip = vals['ip']
+            message = getattr(message, mod)()
             print 'echo:', message
             return message
 
