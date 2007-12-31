@@ -8,6 +8,7 @@ and translates commands to functions/objects/methods.
 """
 
 import re
+import inspect
 import logging ; log = logging.getLogger('pymin.dispatcher')
 
 __ALL__ = ('Error', 'HandlerError', 'CommandNotFoundError', 'Handler',
@@ -165,11 +166,50 @@ def handler(help):
     """
     if not help:
         raise TypeError("'help' should not be empty")
-    def wrapper(f):
-        f._dispatcher_handler = True
-        f.handler_help = help
-        return f
-    return wrapper
+    def make_wrapper(f):
+        log.debug('handler(): Decorating %s()', f.__name__)
+        # Here comes the tricky part:
+        # We need to make our wrapped function to accept any number of
+        # positional and keyword arguments, but checking for the correct
+        # arguments and raising an exception in case the arguments doesn't
+        # match.
+        # So we create a dummy function, with the same signature as the
+        # wrapped one, so we can check later (at "dispatch-time") if the
+        # real function call will be successful. If the dummy function don't
+        # raise a TypeError, the arguments are just fine.
+        env = dict()
+        argspec = inspect.getargspec(f)
+        signature = inspect.formatargspec(*argspec)
+        # The dummy function
+        exec "def f%s: pass" % signature in env
+        signature_check = env['f']
+        # The wrapper to check the signature at "dispatch-time"
+        def wrapper(*args, **kwargs):
+            # First we check if the arguments passed are OK.
+            try:
+                signature_check(*args, **kwargs)
+            except TypeError, e:
+                # If not, we raise an appropriate error.
+                raise WrongArgumentsError(f, e)
+            # If they are fine, we call the real function
+            return f(*args, **kwargs)
+        # Some flag to mark our handlers for simple checks
+        wrapper._dispatcher_handler = True
+        # The help string we asked for in the first place =)
+        wrapper.handler_help = help
+        # We store the original signature for better help generation
+        wrapper.handler_argspec = argspec
+        # And some makeup, to make our wrapper look like the original function
+        wrapper.__name__ = f.__name__
+        wrapper.__dict__.update(f.__dict__)
+        # We add a hint in the documentation
+        wrapper.__doc__ = "Pymin handler with signature: %s%s" \
+                            % (wrapper.__name__, signature)
+        if f.__doc__ is not None:
+            wrapper.__doc__ += "\n\n" + f.__doc__
+        wrapper.__module__ = f.__module__
+        return wrapper
+    return make_wrapper
 
 def is_handler(handler):
     r"is_handler(handler) -> bool :: Tell if a object is a handler."
@@ -479,35 +519,9 @@ class Dispatcher:
             route = route[1:]
         log.debug(u'Dispatcher.dispatch: %r is a handler, calling it with '
                     u'route=%r, kwargs=%r', handler, route, kwargs)
-        try:
-            r = handler(*route, **kwargs)
-            log.debug(u'Dispatcher.dispatch: handler returned %s', r)
-            return r
-        except TypeError, e:
-            log.debug(u'Dispatcher.dispatch: type error (%r)', e)
-            m = args_re.match(unicode(e))
-            if m:
-                (quant, n_ok, n_bad)  = m.groups()
-                n_ok = int(n_ok)
-                n_bad = int(n_bad)
-                n_ok -= 1
-                n_bad -= 1
-                pl = ''
-                if n_ok > 1:
-                    pl = 's'
-                e = WrongArgumentsError(handler, u'takes %s %s argument%s, '
-                            '%s given' % (quant, n_ok, pl, n_bad))
-                log.debug(u'Dispatcher.dispatch: wrong arguments (%r)', e)
-                raise e
-            m = kw_re.match(unicode(e))
-            if m:
-                (kw,)  = m.groups()
-                e = WrongArgumentsError(handler,
-                        u'got an unexpected keyword argument %s' % kw)
-                log.debug(u'Dispatcher.dispatch: wrong arguments (%r)', e)
-                raise e
-            log.debug(u'Dispatcher.dispatch: some other TypeError, re-raising')
-            raise
+        r = handler(*route, **kwargs)
+        log.debug(u'Dispatcher.dispatch: handler returned %s', r)
+        return r
 
 
 if __name__ == '__main__':
@@ -532,8 +546,8 @@ if __name__ == '__main__':
         def cmd1(self, *args):
             print 'class.cmd1:', args
         @handler(u"cmd2: Print all the arguments, return nothing")
-        def cmd2(self, *args):
-            print 'class.cmd2:', args
+        def cmd2(self, arg1, arg2):
+            print 'class.cmd2:', arg1, arg2
         subclass = TestClassSubHandler()
 
     class RootHandler(Handler):
@@ -542,29 +556,74 @@ if __name__ == '__main__':
 
     d = Dispatcher(RootHandler())
 
-    d.dispatch(r'''func arg1 arg2 arg3 "fourth 'argument' with \", a\ttab and\n\\n"''')
-    print 'inst commands:', tuple(d.dispatch('inst commands'))
-    print 'inst help:', d.dispatch('inst help')
-    d.dispatch('inst cmd1 arg1 arg2 arg3 arg4')
-    d.dispatch('inst cmd2 arg1 arg2')
-    print 'inst subclass help:', d.dispatch('inst subclass help')
-    d.dispatch('inst subclass subcmd arg1 arg2 arg3 arg4 arg5')
+    r = d.dispatch(r'''func arg1 arg2 arg3 "fourth 'argument' with \", a\ttab and\n\\n"''')
+    assert r is None
+    r = list(d.dispatch('inst commands'))
+    r.sort()
+    assert r == ['cmd1', 'cmd2', 'commands', 'help']
+    print 'inst commands:', r
+    r = d.dispatch('inst help')
+    assert r == {
+                'commands': u'List available commands',
+                'subclass': u'Undocumented handler',
+                'cmd1': u'cmd1: Print all the arguments, return nothing',
+                'cmd2': u'cmd2: Print all the arguments, return nothing',
+                'help': u'Show available commands with their help'
+    }
+    print 'inst help:', r
+    r = d.dispatch('inst cmd1 arg1 arg2 arg3 arg4')
+    assert r is None
+    r = d.dispatch('inst cmd2 arg1 arg2')
+    assert r is None
+    r = d.dispatch('inst subclass help')
+    assert r == {
+                'subcmd': u'subcmd: Print all the arguments, return nothing',
+                'commands': u'List available commands',
+                'help': u'Show available commands with their help'
+    }
+    print 'inst subclass help:', r
+    r = d.dispatch('inst subclass subcmd arg1 arg2 arg3 arg4 arg5')
+    assert r is None
     try:
         d.dispatch('')
+        assert False, 'It should raised a CommandNotSpecifiedError'
     except CommandNotSpecifiedError, e:
         print 'Not found:', e
     try:
         d.dispatch('sucutrule piquete culete')
+        assert False, 'It should raised a CommandNotFoundError'
     except CommandNotFoundError, e:
         print 'Not found:', e
     try:
         d.dispatch('inst cmd3 arg1 arg2 arg3')
+        assert False, 'It should raised a CommandNotInHandlerError'
     except CommandNotInHandlerError, e:
         print 'Not found:', e
     try:
         d.dispatch('inst')
+        assert False, 'It should raised a CommandIsAHandlerError'
     except CommandIsAHandlerError, e:
         print 'Not found:', e
+    try:
+        d.dispatch('inst cmd2 "just one arg"')
+        assert False, 'It should raised a WrongArgumentsError'
+    except WrongArgumentsError, e:
+        print 'Bad arguments:', e
+    try:
+        d.dispatch('inst cmd2 arg1 arg2 "an extra argument"')
+        assert False, 'It should raised a WrongArgumentsError'
+    except WrongArgumentsError, e:
+        print 'Bad arguments:', e
+    try:
+        d.dispatch('inst cmd2 arg1 arg2 arg3="unexpected keyword arg"')
+        assert False, 'It should raised a WrongArgumentsError'
+    except WrongArgumentsError, e:
+        print 'Bad arguments:', e
+    try:
+        d.dispatch('inst cmd2 arg1 arg2 arg2="duplicated keyword arg"')
+        assert False, 'It should raised a WrongArgumentsError'
+    except WrongArgumentsError, e:
+        print 'Bad arguments:', e
     print
     print
 
@@ -613,14 +672,12 @@ if __name__ == '__main__':
     assert p == ([u'\\None'], {}), p
     try:
         p = parse_command('hello=')
+        assert False, p + ' should raised a ParseError'
     except ParseError, e:
         pass
-    else:
-        assert False, p + ' should raised a ParseError'
     try:
         p = parse_command('"hello')
+        assert False, p + ' should raised a ParseError'
     except ParseError, e:
         pass
-    else:
-        assert False, p + ' should raised a ParseError'
 
