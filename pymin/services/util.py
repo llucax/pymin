@@ -101,7 +101,7 @@ class ItemAlreadyExistsError(ItemError):
 
     def __init__(self, key):
         r"Initialize the object. See class documentation for more info."
-        self.message = u'Item already exists: "%s"' % key
+        self.message = u'Item already exists: %s' % key
 
 class ItemNotFoundError(ItemError):
     r"""
@@ -850,7 +850,9 @@ class ContainerSubHandler(SubHandler):
         # do we have the same item? then raise an error
         if key in self._vattr():
             log.debug(u'ContainerSubHandler.add: allready exists')
-            raise ItemAlreadyExistsError(item)
+            if not isinstance(self._attr(), dict):
+                key = self._attr().index(item)
+            raise ItemAlreadyExistsError(key)
         # do we have the same item, but logically deleted? then update flags
         if key in self._attr():
             log.debug(u'ContainerSubHandler.add: was deleted, undeleting it')
@@ -1049,7 +1051,9 @@ class ComposedSubHandler(SubHandler):
         # do we have the same item? then raise an error
         if key in self._vattr(cont):
             log.debug(u'ComposedSubHandler.add: allready exists')
-            raise ItemAlreadyExistsError(item)
+            if not isinstance(self._attr(), dict):
+                key = self._attr().index(item)
+            raise ItemAlreadyExistsError(key)
         # do we have the same item, but logically deleted? then update flags
         if key in self._attr(cont):
             log.debug(u'ComposedSubHandler.add: was deleted, undeleting it')
