@@ -74,7 +74,7 @@ __all__ = ('Field', 'ValidatedClass')
 
 from formencode import Invalid
 from formencode.schema import Schema
-from formencode.validators import FancyValidator, OneOf, CIDR, Int
+from formencode.validators import FancyValidator
 
 # FIXME not thread safe (use threadlocal?)
 # This is a counter to preserve the order of declaration of fields (class
