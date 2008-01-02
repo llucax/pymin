@@ -2,6 +2,8 @@
 
 r"Simple module that provides a validated and sequenced Item."
 
+__all__ = ('Item',)
+
 from pymin.seqtools import Sequence
 from pymin.validatedclass import ValidatedClass
 
