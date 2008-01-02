@@ -6,7 +6,7 @@ import signal
 import subprocess
 import logging ; log = logging.getLogger('pymin.procman')
 
-__ALL__ = ('ProcessManager', 'manager', 'register', 'unregister', 'call',
+__all__ = ('ProcessManager', 'manager', 'register', 'unregister', 'call',
            'start', 'stop', 'kill', 'get', 'has', 'sigchild_handler')
 
 class ProcessInfo:

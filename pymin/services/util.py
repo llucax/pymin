@@ -17,7 +17,7 @@ from pymin.seqtools import Sequence
 #DEBUG = False
 DEBUG = True
 
-__ALL__ = ('Error', 'ExecutionError', 'ItemError', 'ItemAlreadyExistsError',
+__all__ = ('Error', 'ExecutionError', 'ItemError', 'ItemAlreadyExistsError',
            'ItemNotFoundError', 'ContainerError', 'ContainerNotFoundError',
            'call', 'get_network_devices', 'Persistent', 'Restorable',
            'ConfigWriter', 'ServiceHandler', 'RestartHandler',

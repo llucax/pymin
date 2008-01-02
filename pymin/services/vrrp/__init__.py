@@ -13,7 +13,7 @@ from pymin.services.util import Restorable, TransactionalHandler, \
                                 ReloadHandler, RestartHandler, \
                                 ServiceHandler, ParametersHandler, call
 
-__ALL__ = ('VrrpHandler',)
+__all__ = ('VrrpHandler',)
 
 # FIXME the the command should not use new parameters unless commit where called
 #       i.e. integrate commit with procman to update internal procman parameters.

@@ -70,7 +70,7 @@ attributes using Field instances. For example:
 Nice, ugh?
 """
 
-__ALL__ = ('Field', 'ValidatedClass')
+__all__ = ('Field', 'ValidatedClass')
 
 from formencode import Invalid
 from formencode.schema import Schema

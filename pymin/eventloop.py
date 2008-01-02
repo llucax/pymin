@@ -12,7 +12,7 @@ import signal
 from select import POLLIN, POLLPRI, POLLERR
 import logging ; log = logging.getLogger('pymin.eventloop')
 
-__ALL__ = ('EventLoop', 'LoopInterruptedError')
+__all__ = ('EventLoop', 'LoopInterruptedError')
 
 class LoopInterruptedError(RuntimeError):
     r"""

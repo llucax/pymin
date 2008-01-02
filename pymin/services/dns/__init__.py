@@ -11,7 +11,7 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, ParametersHandler, \
                                 DictComposedSubHandler, DictSubHandler, call
 
-__ALL__ = ('DnsHandler',)
+__all__ = ('DnsHandler',)
 
 class Host(Sequence):
     def __init__(self, name, ip):

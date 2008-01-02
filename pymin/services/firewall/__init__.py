@@ -11,7 +11,7 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, ServiceHandler, \
                                 TransactionalHandler, ListSubHandler
 
-__ALL__ = ('FirewallHandler',)
+__all__ = ('FirewallHandler',)
 
 class Rule(Sequence):
     r"""Rule(chain, target[, src[, dst[, ...]]]) -> Rule instance.

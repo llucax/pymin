@@ -12,7 +12,7 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 DictComposedSubHandler, Device, Address, \
                                 ExecutionError
 
-__ALL__ = ('IpHandler',)
+__all__ = ('IpHandler',)
 
 # TODO: convertir HopHandler a ComposedSubHandler
 

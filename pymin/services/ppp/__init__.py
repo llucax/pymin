@@ -11,7 +11,7 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, ReloadHandler, \
                                 TransactionalHandler, DictSubHandler, call
 
-__ALL__ = ('PppHandler',)
+__all__ = ('PppHandler',)
 
 class ConnectionError(HandlerError, KeyError):
     r"""

@@ -10,7 +10,7 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 get_network_devices, ListComposedSubHandler, \
                                 DictComposedSubHandler, ExecutionError
 
-__ALL__ = ('QoSHandler',)
+__all__ = ('QoSHandler',)
 
 class DeviceError(HandlerError):
 

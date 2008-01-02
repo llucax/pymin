@@ -9,7 +9,7 @@ from pymin.services.util import Restorable, ConfigWriter, RestartHandler, \
                                 ReloadHandler, TransactionalHandler, \
                                 ServiceHandler, ListSubHandler, call
 
-__ALL__ = ('NatHandler',)
+__all__ = ('NatHandler',)
 
 class PortForward(Sequence):
     r"""PortForward(dev, protocol, port, dst[, dst_port[, ...]]) -> PortForward.

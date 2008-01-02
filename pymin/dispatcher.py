@@ -11,7 +11,7 @@ import re
 import inspect
 import logging ; log = logging.getLogger('pymin.dispatcher')
 
-__ALL__ = ('Error', 'HandlerError', 'CommandNotFoundError', 'Handler',
+__all__ = ('Error', 'HandlerError', 'CommandNotFoundError', 'Handler',
             'Dispatcher', 'handler', 'is_handler', 'get_help')
 
 class Error(RuntimeError):
