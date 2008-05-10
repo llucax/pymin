@@ -918,7 +918,7 @@ class ContainerSubHandler(SubHandler):
         log.debug(u'ContainerSubHandler.clear()')
         # FIXME broken really, no _delete attribute is setted :S
         if isinstance(self._attr(), dict):
-            self._attr.clear()
+            self._attr().clear()
         else:
             self._attr(list())
 
