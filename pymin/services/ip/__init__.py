@@ -41,12 +41,6 @@ class HopHandler(ListSubHandler):
             raise DeviceNotFoundError(device)
         return ListSubHandler.add(self, dev, gw)
 
-    @handler(u'Delete a hop: delete <device> <gateway>')
-    def delete(self, dev, gw):
-        if not dev in self.parent.devices:
-            raise DeviceNotFoundError(device)
-        return ListSubHandler.delete(self, dev, gw)
-
 
 class Route(Sequence):
     def __init__(self, net_addr, prefix, gateway):
