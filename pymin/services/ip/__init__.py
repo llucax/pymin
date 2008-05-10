@@ -9,27 +9,10 @@ from pymin.dispatcher import handler, HandlerError, Handler
 from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, SubHandler, call, \
                                 get_network_devices, ListComposedSubHandler, \
-                                DictComposedSubHandler, Device, Address, \
-                                ExecutionError
+                                DictComposedSubHandler, ListSubHandler, \
+                                Device, Address, ExecutionError
 
 __all__ = ('IpHandler',)
-
-# TODO: convertir HopHandler a ComposedSubHandler
-
-class HopError(HandlerError):
-
-    def __init__(self, hop):
-        self.message = u'Hop error : "%s"' % hop
-
-class HopNotFoundError(HopError):
-
-    def __init__(self, hop):
-        self.message = u'Hop not found : "%s"' % hop
-
-class HopAlreadyExistsError(HopError):
-
-    def __init__(self, hop):
-        self.message = u'Hop already exists : "%s"' % hop
 
 
 class Hop(Sequence):
@@ -47,47 +30,23 @@ class Hop(Sequence):
             return 0
         return cmp(id(self), id(other))
 
-class HopHandler(Handler):
+class HopHandler(ListSubHandler):
+    handler_help = u"Manage IP hops"
+    _cont_subhandler_attr = 'hops'
+    _cont_subhandler_class = Hop
 
-    def __init__(self, parent):
-        self.parent = parent
-
-    @handler('Adds a hop : add <gateway> <device>')
-    def add(self, gw, dev):
+    @handler('Add a hop: add <device> <gateway>')
+    def add(self, dev, gw):
         if not dev in self.parent.devices:
             raise DeviceNotFoundError(device)
-        h = Hop(gw, dev)
-        try:
-            self.parent.hops.index(h)
-            raise HopAlreadyExistsError(gw  + '->' + dev)
-        except ValueError:
-            self.parent.hops.append(h)
+        return ListSubHandler.add(self, dev, gw)
 
-    @handler(u'Deletes a hop : delete <gateway> <device>')
-    def delete(self, gw, dev):
+    @handler(u'Delete a hop: delete <device> <gateway>')
+    def delete(self, dev, gw):
         if not dev in self.parent.devices:
             raise DeviceNotFoundError(device)
-        h = Hop(gw, dev)
-        try:
-            self.parent.hops.remove(h)
-        except ValueError:
-            raise HopNotFoundError(gw + '->' + dev)
+        return ListSubHandler.delete(self, dev, gw)
 
-    @handler(u'Lists hops : list <dev>')
-    def list(self, device):
-        try:
-            k = self.parent.hops.keys()
-        except ValueError:
-            k = list()
-        return k
-
-    @handler(u'Get information about all hops: show <dev>')
-    def show(self, device):
-        try:
-            k = self.parent.hops.values()
-        except ValueError:
-            k = list()
-        return k
 
 class Route(Sequence):
     def __init__(self, net_addr, prefix, gateway):
