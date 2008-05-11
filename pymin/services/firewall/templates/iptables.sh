@@ -4,7 +4,7 @@
 
 # TODO escape shell commands more securely
 def s(text):
-    return repr(text.encode('utf-8'))
+    return repr(unicode(text).encode('utf-8'))
 
 def optional(switch, value):
     if value is not None:
