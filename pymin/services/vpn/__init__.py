@@ -1,6 +1,7 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 import os
+import errno
 import signal
 from os import path
 import logging ; log = logging.getLogger('pymin.services.vpn')
@@ -144,9 +145,14 @@ class VpnHandler(Restorable, ConfigWriter,
                                     path.join(self._config_writer_cfg_dir,
                                                 v.vpn_src ,'hosts'))
                         #first create the directory for the vpn
-                        call(('mkdir', '-p', path.join(
-                                            self._config_writer_cfg_dir,
-                                            v.vpn_src, 'hosts')))
+                        try:
+                            os.makedirs(path.join(self._config_writer_cfg_dir,
+                                                  v.vpn_src, 'hosts'))
+                        except (IOError, OSError), e:
+                            if e.errno != errno.EEXIST:
+                                raise HandlerError(u"Can't create VPN config "
+                                                   "directory '%s' (%s)'"
+                                                    % (e.filename, e.strerror))
                         #this command should generate 2 files inside the vpn
                         #dir, one rsa_key.priv and one rsa_key.pub
                         #for some reason debian does not work like this
