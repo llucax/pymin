@@ -160,10 +160,16 @@ class VpnHandler(Restorable, ConfigWriter,
                         log.debug(u'VpnHandler._write_config: creating key...')
                         call(('tincd', '-n', v.vpn_src, '-K', '<', '/dev/null'))
                         #open the created files and load the keys
-                        f = file(path.join(self._config_writer_cfg_dir,
-                                            v.vpn_src, 'rsa_key.pub'), 'r')
-                        pub = f.read()
-                        f.close()
+                        try:
+                            f = file(path.join(self._config_writer_cfg_dir,
+                                               v.vpn_src, 'rsa_key.pub'),
+                                     'r')
+                            pub = f.read()
+                            f.close()
+                        except (IOError, OSError), e:
+                            raise HandlerError(u"Can't read VPN key '%s' (%s)'"
+                                                % (e.filename, e.strerror))
+
                         v.pub_key = pub
                         v.priv_key = priv
                     except ExecutionError, e:
