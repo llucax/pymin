@@ -19,7 +19,7 @@ class Host(Sequence):
         self.ip = ip
         self.src_net = vpn_src_net
         self.pub_key = key
-        self.dele = False
+        self._delete = False
 
     def as_tuple(self):
         return(self.name, self.ip, self.src_net, self.pub_key)
@@ -31,16 +31,10 @@ class HostHandler(DictComposedSubHandler):
     _comp_subhandler_attr = 'hosts'
     _comp_subhandler_class = Host
 
-    @handler('usage: add <vpn_src> <ip> <vpn_src_net> <key>')
-    def delete(self, vpn_src, host):
-        DictComposedSubHandler.delete(self, vpn_src, host)
-        if vpn_src in parent.vpns:
-            if host in parent.vpns[vpn_src].hosts:
-                parent.vpns[vpn_src].hosts[host].dele = True
-
 
 class Vpn(Sequence):
-    def __init__(self, vpn_src, vpn_dst, vpn_src_ip, vpn_src_mask, pub_key, priv_key):
+    def __init__(self, vpn_src, vpn_dst, vpn_src_ip, vpn_src_mask,
+                    pub_key=None, priv_key=None):
         self.vpn_src = vpn_src
         self.vpn_dst = vpn_dst
         self.vpn_src_ip = vpn_src_ip
@@ -48,7 +42,7 @@ class Vpn(Sequence):
         self.pub_key = pub_key
         self.priv_key = priv_key
         self.hosts = dict()
-        self.dele = False
+        self._delete = False
 
     def as_tuple(self):
         return(self.vpn_src, self.vpn_dst, self.vpn_src_ip, self.vpn_src_mask, self.pub_key, self.priv_key)
@@ -89,25 +83,6 @@ class VpnHandler(Restorable, ConfigWriter,
         self._restore()
         self.host = HostHandler(self)
 
-    @handler('usage : add <vpn_name> <vpn_dst> <vpn_src_ip> <vpn_src_mask>')
-    def add(self, vpn_src, vpn_dst, vpn_src_ip, vpn_src_mask):
-        log.debug(u'VpnHandler.add(%r, %r, %r, %r)', vpn_src, vpn_dst,
-                    vpn_src_ip, vpn_src_mask)
-        if vpn_src in self.vpns:
-            if self.vpns[vpn_src].dele:
-                log.debug(u'VpnHandler.add: deleted, undeleting')
-                self.vpns[vpn_src] = False
-        else:
-            DictSubHandler.add(self, vpn_src, vpn_dst, vpn_src_ip,
-                                vpn_src_mask, None, None)
-
-    @handler('usage : delete <vpn_name>')
-    def delete(self, vpn_src):
-        log.debug(u'VpnHandler.delete(%r)', vpn_src)
-        if vpn_src in self.vpns:
-            self.vpns[vpn_src].dele = True;
-
-
     @handler('usage: start <vpn_name>')
     def start(self, vpn_src):
         log.debug(u'VpnHandler.start(%r)', vpn_src)
@@ -136,7 +111,7 @@ class VpnHandler(Restorable, ConfigWriter,
         for v in self.vpns.values():
             log.debug(u'VpnHandler._write_config: processing %r', v)
             #chek whether it's been created or not.
-            if not v.dele:
+            if not v._delete:
                 if v.pub_key is None:
                     log.debug(u'VpnHandler._write_config: new VPN, generating '
                                 'key...')
@@ -184,7 +159,7 @@ class VpnHandler(Restorable, ConfigWriter,
                 self._write_single_config('tinc-up',
                                 path.join(v.vpn_src, 'tinc-up'), vars)
                 for h in v.hosts.values():
-                    if not h.dele:
+                    if not h._delete:
                         vars = dict(
                             host = h,
                         )
