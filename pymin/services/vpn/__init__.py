@@ -161,10 +161,6 @@ class VpnHandler(Restorable, ConfigWriter,
                         call(('tincd', '-n', v.vpn_src, '-K', '<', '/dev/null'))
                         #open the created files and load the keys
                         f = file(path.join(self._config_writer_cfg_dir,
-                                            v.vpn_src, 'rsa_key.priv'), 'r')
-                        priv = f.read()
-                        f.close()
-                        f = file(path.join(self._config_writer_cfg_dir,
                                             v.vpn_src, 'rsa_key.pub'), 'r')
                         pub = f.read()
                         f.close()
