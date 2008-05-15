@@ -362,7 +362,7 @@ class Restorable(Persistent):
             return False
 
 class ConfigWriter:
-    r"""ConfigWriter([initd_name[, initd_dir]]) -> ConfigWriter.
+    r"""ConfigWriter([files[, cfg_dir[, tpl_dir]]]) -> ConfigWriter.
 
     This is a helper class to inherit from to automatically handle
     configuration generation. Mako template system is used for configuration
