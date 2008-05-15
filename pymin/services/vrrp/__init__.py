@@ -1,17 +1,12 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-import os
-from os import path
-from signal import SIGTERM
-from subprocess import Popen, PIPE
-import logging ; log = logging.getLogger('pymin.services.vrrp')
-
 from pymin import procman
-from pymin.seqtools import Sequence
-from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, TransactionalHandler, \
                                 ReloadHandler, RestartHandler, \
-                                ServiceHandler, ParametersHandler, call
+                                ServiceHandler, ParametersHandler
+
+# Logger
+import logging ; log = logging.getLogger('pymin.services.vrrp')
 
 __all__ = ('VrrpHandler',)
 
