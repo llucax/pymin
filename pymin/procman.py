@@ -11,14 +11,14 @@ __all__ = ('ProcessManager', 'manager', 'register', 'unregister', 'call',
 
 class ProcessInfo:
     def __init__(self, name, command, callback=None, persist=False,
-                       args=None, kw=None, max_errors=3):
+                 max_errors=3, args=None, kwargs=None):
         self.name = name
         self.command = command
         self.callback = callback
         if args is None: args = list()
         self.args = args
-        if kw is None: kw = dict()
-        self.kw = kw
+        if kwargs is None: kwargs = dict()
+        self.kwargs = kwargs
         self.persist = persist
         self.max_errors = max_errors
         self.clear()
@@ -34,7 +34,7 @@ class ProcessInfo:
     def restart(self):
         self.clear()
         log.debug(u'ProcessInfo.restart(): executing %s', self.command)
-        self.process = subprocess.Popen(self.command, *self.args, **self.kw)
+        self.process = subprocess.Popen(self.command, *self.args, **self.kwargs)
         self.running = True
     def stop(self):
         assert self.process is not None
@@ -68,11 +68,11 @@ class ProcessManager:
         log.debug(u'ProcessManager()')
 
     def register(self, name, command, callback=None, persist=False,
-                       *args, **kw):
-        log.debug(u'ProcessManager.register(%s, %s, %s, %s, %s, %s)',
-                      name, command, callback, persist, args, kw)
+                max_errors=3, *args, **kwargs):
+        log.debug(u'ProcessManager.register(%s, %s, %s, %s, %s, %s, %s)',
+                  name, command, callback, persist, max_errors, args, kwargs)
         self.services[name] = ProcessInfo(name, command, callback, persist,
-                                          args, kw)
+                                          max_errors, args, kwargs)
 
     def unregister(self, name):
         log.debug(u'ProcessManager.unregister(%s)', name)
@@ -82,10 +82,12 @@ class ProcessManager:
         pi.start()
         self.namemap[pi.name] = self.pidmap[pi.process.pid] = pi
 
-    def call(self, name, command, callback=None, persist=False, *args, **kw):
-        log.debug(u'ProcessManager.call(%s, %s, %s, %s, %s, %s)',
-                      name, command, callback, persist, args, kw)
-        pi = ProcessInfo(name, command, callback, persist, args, kw)
+    def call(self, name, command, callback=None, persist=False,
+                max_errors=3, *args, **kwargs):
+        log.debug(u'ProcessManager.call(%s, %s, %s, %s, %s, %s, %s)',
+                  name, command, callback, persist, max_errors, args, kwargs)
+        pi = ProcessInfo(name, command, callback, persist, max_errors,
+                         args, kwargs)
         self._call(pi)
 
     def start(self, name):
