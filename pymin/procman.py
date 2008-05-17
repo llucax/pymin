@@ -6,7 +6,7 @@ import signal
 import subprocess
 import logging ; log = logging.getLogger('pymin.procman')
 
-__all__ = ('ProcessManager', 'manager', 'register', 'unregister', 'call',
+__all__ = ('ProcessManager', 'manager', 'register', 'unregister', 'once',
            'start', 'stop', 'restart', 'kill', 'get', 'has', 'sigchild_handler')
 
 class ProcessInfo:
@@ -84,9 +84,9 @@ class ProcessManager:
         pi.start()
         self.namemap[pi.name] = self.pidmap[pi.process.pid] = pi
 
-    def call(self, name, command, callback=None, persist=False,
+    def once(self, name, command, callback=None, persist=False,
                 max_errors=3, *args, **kwargs):
-        log.debug(u'ProcessManager.call(%s, %s, %s, %s, %s, %s, %s)',
+        log.debug(u'ProcessManager.once(%s, %s, %s, %s, %s, %s, %s)',
                   name, command, callback, persist, max_errors, args, kwargs)
         assert not self.has(name)
         pi = ProcessInfo(name, command, callback, persist, max_errors,
@@ -106,7 +106,7 @@ class ProcessManager:
     def restart(self, name):
         log.debug(u'ProcessManager.restart(%s)', name)
         # we have to check first in namemap in case is an unregistered
-        # process (added with call())
+        # process (added with once())
         if name in self.namemap:
             pi = self.namemap[name]
             pi.stop()
@@ -209,7 +209,7 @@ if __name__ == '__main__':
 manager = ProcessManager()
 register = manager.register
 unregister = manager.unregister
-call = manager.call
+once = manager.once
 start = manager.start
 stop = manager.stop
 restart = manager.restart
@@ -258,7 +258,7 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGCHLD, SIGCHLD_handler)
 
-    call('test-once', ('sleep', '5'), notify)
+    once('test-once', ('sleep', '5'), notify)
     assert 'test-once' not in manager.services
     assert 'test-once' in manager.namemap
     assert get('test-once').running
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     assert 'test-once' not in manager.services
     assert 'test-once' not in manager.namemap
 
-    call('test-wait', ('sleep', '2'))
+    once('test-wait', ('sleep', '2'))
     print 'test-wait returned?', get('test-wait').process.poll()
     assert get('test-wait').running
     print 'Waiting test-wait to return...'
