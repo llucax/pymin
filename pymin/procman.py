@@ -72,6 +72,7 @@ class ProcessManager:
                 max_errors=3, *args, **kwargs):
         log.debug(u'ProcessManager.register(%s, %s, %s, %s, %s, %s, %s)',
                   name, command, callback, persist, max_errors, args, kwargs)
+        assert not self.has(name)
         self.services[name] = ProcessInfo(name, command, callback, persist,
                                           max_errors, args, kwargs)
 
@@ -87,6 +88,7 @@ class ProcessManager:
                 max_errors=3, *args, **kwargs):
         log.debug(u'ProcessManager.call(%s, %s, %s, %s, %s, %s, %s)',
                   name, command, callback, persist, max_errors, args, kwargs)
+        assert not self.has(name)
         pi = ProcessInfo(name, command, callback, persist, max_errors,
                          args, kwargs)
         self._call(pi)
