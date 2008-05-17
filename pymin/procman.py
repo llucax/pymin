@@ -7,7 +7,7 @@ import subprocess
 import logging ; log = logging.getLogger('pymin.procman')
 
 __all__ = ('ProcessManager', 'manager', 'register', 'unregister', 'call',
-           'start', 'stop', 'kill', 'get', 'has', 'sigchild_handler')
+           'start', 'stop', 'restart', 'kill', 'get', 'has', 'sigchild_handler')
 
 class ProcessInfo:
     def __init__(self, name, command, callback=None, persist=False,
@@ -102,12 +102,15 @@ class ProcessManager:
 
     def restart(self, name):
         log.debug(u'ProcessManager.restart(%s)', name)
+        # we have to check first in namemap in case is an unregistered
+        # process (added with call())
         if name in self.namemap:
-            self.namemap[name].stop()
-            self.namemap[name].wait()
-            self.namemap[name].restart()
+            pi = self.namemap[name]
+            pi.stop()
+            pi.process.wait()
+            pi.restart()
         else:
-            self.namemap[name].start()
+            self.services[name].start()
 
     def kill(self, name, signum):
         log.debug(u'ProcessManager.kill(%s, %s)', name, signum)
@@ -206,6 +209,7 @@ unregister = manager.unregister
 call = manager.call
 start = manager.start
 stop = manager.stop
+restart = manager.restart
 kill = manager.kill
 get = manager.get
 has = manager.has
