@@ -27,7 +27,6 @@ class ProcessInfo:
         self.signal = None
         self.process = None
         self.error_count = 0
-        self.running = False
     def start(self):
         assert self.process is None
         self.restart()
@@ -35,7 +34,6 @@ class ProcessInfo:
         self.clear()
         log.debug(u'ProcessInfo.restart(): executing %s', self.command)
         self.process = subprocess.Popen(self.command, *self.args, **self.kwargs)
-        self.running = True
     def stop(self):
         assert self.process is not None
         self.dont_run = True
@@ -51,6 +49,9 @@ class ProcessInfo:
         assert self.process is not None
         os.kill(self.process.pid, signum)
         self.signal = signum
+    @property
+    def running(self):
+        return self.process is not None and self.process.poll() is None
     def __repr__(self):
         pid = None
         if self.process is not None:
@@ -240,24 +241,29 @@ if __name__ == '__main__':
                 assert 'test-service-2' not in manager.namemap
                 pm.start('test-service-2')
                 assert 'test-service-2' in manager.namemap
+                assert get('test-service-2').running
         print 'died:', pi.name, pi.command
 
     register('test-service', ('sleep', '2'), notify, True)
     assert 'test-service' in manager.services
     assert 'test-service' not in manager.namemap
+    assert not get('test-service').running
 
     register('test-service-2', ('sleep', '3'), notify, False)
     assert 'test-service-2' in manager.services
     assert 'test-service-2' not in manager.namemap
+    assert not get('test-service-2').running
 
     signal.signal(signal.SIGCHLD, SIGCHLD_handler)
 
     call('test-once', ('sleep', '5'), notify)
     assert 'test-once' not in manager.services
     assert 'test-once' in manager.namemap
+    assert get('test-once').running
 
     start('test-service')
     assert 'test-service' in manager.namemap
+    assert get('test-service').running
 
     print "Known processes:", manager.services.keys()
     print "Waiting...", manager.namemap.keys()
@@ -277,6 +283,7 @@ if __name__ == '__main__':
 
     call('test-wait', ('sleep', '2'))
     print 'test-wait returned?', get('test-wait').process.poll()
+    assert get('test-wait').running
     print 'Waiting test-wait to return...'
     ret = get('test-wait').process.wait()
     print 'Done! returned:', ret
