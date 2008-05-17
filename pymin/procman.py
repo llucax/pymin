@@ -231,24 +231,43 @@ if __name__ == '__main__':
             print 'test-service count =', count
             count += 1
             if count > 4:
-                print 'test-service not persistent anymore, start test2'
+                print 'set test-service non-persistent, start test-service-2'
                 pi.persist = False
-                pm.start('test2')
+                assert 'test-service-2' not in manager.namemap
+                pm.start('test-service-2')
+                assert 'test-service-2' in manager.namemap
         print 'died:', pi.name, pi.command
 
     register('test-service', ('sleep', '2'), notify, True)
-    register('test2', ('sleep', '3'), notify, False)
+    assert 'test-service' in manager.services
+    assert 'test-service' not in manager.namemap
+
+    register('test-service-2', ('sleep', '3'), notify, False)
+    assert 'test-service-2' in manager.services
+    assert 'test-service-2' not in manager.namemap
 
     signal.signal(signal.SIGCHLD, SIGCHLD_handler)
 
-    call('test', ('sleep', '5'), notify)
-    start('test-service')
+    call('test-once', ('sleep', '5'), notify)
+    assert 'test-once' not in manager.services
+    assert 'test-once' in manager.namemap
 
-    print "Esperando...", [pi.name for pi in manager.namemap.values()]
+    start('test-service')
+    assert 'test-service' in manager.namemap
+
+    print "Known processes:", manager.services.keys()
+    print "Waiting...", manager.namemap.keys()
+    print "------------------------------------------------------------------"
     while manager.pidmap:
         signal.pause()
         if sig == signal.SIGCHLD:
             sigchild_handler(sig)
             sig = None
-        print "Esperando...", [pi.name for pi in manager.namemap.values()]
+        print "Known processes:", manager.services.keys()
+        print "Waiting...", manager.namemap.keys()
+        print "------------------------------------------------------------------"
+    assert 'test-service' not in manager.namemap
+    assert 'test-service-2' not in manager.namemap
+    assert 'test-once' not in manager.services
+    assert 'test-once' not in manager.namemap
 
