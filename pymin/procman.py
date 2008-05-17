@@ -275,3 +275,9 @@ if __name__ == '__main__':
     assert 'test-once' not in manager.services
     assert 'test-once' not in manager.namemap
 
+    call('test-wait', ('sleep', '2'))
+    print 'test-wait returned?', get('test-wait').process.poll()
+    print 'Waiting test-wait to return...'
+    ret = get('test-wait').process.wait()
+    print 'Done! returned:', ret
+
