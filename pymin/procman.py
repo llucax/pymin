@@ -24,7 +24,7 @@ class ProcessInfo:
         self.clear()
     def clear(self):
         self._dont_run = False
-        self.signal = None
+        self._signal = None
         self.process = None
         self.error_count = 0
     def start(self):
@@ -37,7 +37,7 @@ class ProcessInfo:
     def stop(self):
         assert self.process is not None
         self._dont_run = True
-        if self.signal == signal.SIGTERM or self.signal == signal.SIGKILL:
+        if self._signal == signal.SIGTERM or self._signal == signal.SIGKILL:
             # Allready stopped, kill it
             self.kill(signal.SIGKILL)
         else:
@@ -48,7 +48,7 @@ class ProcessInfo:
                       self.process.pid, signum)
         assert self.process is not None
         os.kill(self.process.pid, signum)
-        self.signal = signum
+        self._signal = signum
     @property
     def running(self):
         return self.process is not None and self.process.poll() is None
