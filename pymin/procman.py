@@ -25,7 +25,7 @@ class ProcessInfo:
     def clear(self):
         self._dont_run = False
         self._signal = None
-        self.process = None
+        self._process = None
         self.error_count = 0
     def start(self):
         assert self.process is None
@@ -33,7 +33,8 @@ class ProcessInfo:
     def restart(self):
         self.clear()
         log.debug(u'ProcessInfo.restart(): executing %s', self.command)
-        self.process = subprocess.Popen(self.command, *self.args, **self.kwargs)
+        self._process = subprocess.Popen(self.command,
+                                         *self.args, **self.kwargs)
     def stop(self):
         assert self.process is not None
         self._dont_run = True
@@ -55,6 +56,9 @@ class ProcessInfo:
     @property
     def name(self):
         return self._name
+    @property
+    def process(self):
+        return self._process
     def __repr__(self):
         pid = None
         if self.process is not None:
