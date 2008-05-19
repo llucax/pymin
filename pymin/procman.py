@@ -185,6 +185,8 @@ class ProcessManager:
             if name in self.pidmap:
                 return self.pidmap[name]
         raise KeyError, name
+    # Syntax sugar for self[name]
+    __getitem__ = get
 
     def has(self, name):
         if isinstance(name, basestring): # is a name
@@ -196,12 +198,8 @@ class ProcessManager:
             if name in self.pidmap:
                 return True
         return False
-
-    def __getitem__(self, name):
-        return self.get(name)
-
-    def __contains__(self, name):
-        return self.has(name)
+    # Syntax sugar for name in self
+    __contains__ = has
 
 
 if __name__ == '__main__':
@@ -257,6 +255,9 @@ if __name__ == '__main__':
     assert 'test-service' in manager.services
     assert 'test-service' not in manager.namemap
     assert not get('test-service').running
+    assert manager['test-service'] == get('test-service')
+    assert has('test-service')
+    assert 'test-service' in manager
 
     register('test-service-2', ('sleep', '3'), notify, False)
     assert 'test-service-2' in manager.services
