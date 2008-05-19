@@ -23,7 +23,7 @@ class ProcessInfo:
         self.max_errors = max_errors
         self.clear()
     def clear(self):
-        self.dont_run = False
+        self._dont_run = False
         self.signal = None
         self.process = None
         self.error_count = 0
@@ -36,7 +36,7 @@ class ProcessInfo:
         self.process = subprocess.Popen(self.command, *self.args, **self.kwargs)
     def stop(self):
         assert self.process is not None
-        self.dont_run = True
+        self._dont_run = True
         if self.signal == signal.SIGTERM or self.signal == signal.SIGKILL:
             # Allready stopped, kill it
             self.kill(signal.SIGKILL)
@@ -143,10 +143,10 @@ class ProcessManager:
                     log.debug(u'ProcessManager.sigchild_handler: '
                                   u'calling %s(%s)', p.callback.__name__, p)
                     p.callback(self, p)
-                if p.dont_run or not p.persist or p.error_count >= p.max_errors:
+                if p._dont_run or not p.persist or p.error_count >= p.max_errors:
                     log.debug(u"ProcessManager.sigchild_handler: can't "
                             u'persist, dont_run=%s, persist=%s, error_cout=%s, '
-                            u'max_errors=%s', p.dont_run, p.persist,
+                            u'max_errors=%s', p._dont_run, p.persist,
                             p.error_count, p.max_errors)
                     del self.namemap[p.name]
                     del self.pidmap[pid]
