@@ -12,7 +12,7 @@ __all__ = ('ProcessManager', 'manager', 'register', 'unregister', 'once',
 class ProcessInfo:
     def __init__(self, name, command, callback=None, persist=False,
                  max_errors=3, args=None, kwargs=None):
-        self.name = name
+        self._name = name
         self.command = command
         self.callback = callback
         if args is None: args = list()
@@ -52,6 +52,9 @@ class ProcessInfo:
     @property
     def running(self):
         return self.process is not None and self.process.poll() is None
+    @property
+    def name(self):
+        return self._name
     def __repr__(self):
         pid = None
         if self.process is not None:
