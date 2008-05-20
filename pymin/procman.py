@@ -80,12 +80,16 @@ class ProcessManager:
         log.debug(u'ProcessManager.register(%s, %s, %s, %s, %s, %s, %s)',
                   name, command, callback, persist, max_errors, args, kwargs)
         assert not self.has(name)
-        self.services[name] = ProcessInfo(name, command, callback, persist,
-                                          max_errors, args, kwargs)
+        pi = ProcessInfo(name, command, callback, persist, max_errors,
+                        args, kwargs)
+        self.services[name] = pi
+        return pi
 
     def unregister(self, name):
         log.debug(u'ProcessManager.unregister(%s)', name)
+        pi = self.services[name]
         del self.services[name]
+        return pi
 
     def _call(self, pi):
         pi.start()
@@ -99,6 +103,7 @@ class ProcessManager:
         pi = ProcessInfo(name, command, callback, persist, max_errors,
                          args, kwargs)
         self._call(pi)
+        return pi
 
     def start(self, name):
         log.debug(u'ProcessManager.start(%s)', name)
