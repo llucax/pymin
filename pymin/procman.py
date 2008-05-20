@@ -125,7 +125,7 @@ class ProcessManager:
             pi.process.wait()
             pi.restart()
         else:
-            self.services[name].start()
+            self.start(name)
 
     def kill(self, name, signum):
         log.debug(u'ProcessManager.kill(%s, %s)', name, signum)
