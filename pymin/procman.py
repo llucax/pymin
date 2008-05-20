@@ -121,9 +121,13 @@ class ProcessManager:
         # process (added with once())
         if name in self.namemap:
             pi = self.namemap[name]
+            # the process will change its PID, so we delete it while we know it
+            del self.pidmap[pi.process.pid]
             pi.stop()
             pi.process.wait()
             pi.restart()
+            # add the new PID
+            self.pidmap[pi.process.pid] = pi
         else:
             self.start(name)
 
@@ -275,10 +279,20 @@ if __name__ == '__main__':
     assert 'test-once' not in manager.services
     assert 'test-once' in manager.namemap
     assert get('test-once').running
+    assert get('test-once').process.pid
+    pid = get('test-once').process.pid
+    restart('test-once')
+    assert pid != get('test-once').process.pid
+    assert pid != manager.pidmap[get('test-once').process.pid].process.pid
 
     start('test-service')
     assert 'test-service' in manager.namemap
     assert get('test-service').running
+    assert get('test-service').process.pid
+    pid = get('test-service').process.pid
+    restart('test-service')
+    assert pid != get('test-service').process.pid
+    assert pid != manager.pidmap[get('test-service').process.pid].process.pid
 
     print "Known processes:", manager.services.keys()
     print "Waiting...", manager.namemap.keys()
@@ -296,8 +310,12 @@ if __name__ == '__main__':
     assert 'test-once' not in manager.services
     assert 'test-once' not in manager.namemap
 
+    restart('test-service')
+    assert get('test-service').process.pid
+    assert manager.pidmap[get('test-service').process.pid].process.pid
+
     once('test-wait', ('sleep', '2'))
-    print 'test-wait returned?', get('test-wait').process.poll()
+    print 'test-wait running?', get('test-wait').running
     assert get('test-wait').running
     print 'Waiting test-wait to return...'
     ret = get('test-wait').process.wait()
