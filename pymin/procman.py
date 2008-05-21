@@ -26,7 +26,7 @@ class ProcessInfo:
         self._dont_run = False
         self._signal = None
         self._process = None
-        self.error_count = 0
+        self._error_count = 0
     def start(self):
         assert self.process is None
         self.restart()
@@ -59,6 +59,9 @@ class ProcessInfo:
     @property
     def process(self):
         return self._process
+    @property
+    def error_count(self):
+        return self._error_count
     def __repr__(self):
         pid = None
         if self.process is not None:
@@ -156,24 +159,25 @@ class ProcessManager:
                     log.debug(u'ProcessManager.sigchild_handler: '
                                   u'calling %s(%s)', p.callback.__name__, p)
                     p.callback(self, p)
-                if p._dont_run or not p.persist or p.error_count >= p.max_errors:
+                if (p._dont_run or not p.persist
+                                or p._error_count >= p.max_errors):
                     log.debug(u"ProcessManager.sigchild_handler: can't "
                             u'persist, dont_run=%s, persist=%s, error_cout=%s, '
                             u'max_errors=%s', p._dont_run, p.persist,
-                            p.error_count, p.max_errors)
+                            p._error_count, p.max_errors)
                     del self.namemap[p.name]
                     del self.pidmap[pid]
                     p.clear()
                 else:
                     log.debug(u'ProcessManager.sigchild_handler: persist')
                     if p.process.returncode == 0:
-                        p.error_count = 0
+                        p._error_count = 0
                         log.debug(u'ProcessManager.sigchild_handler: '
                                 u'return OK, resetting error_count')
                     else:
-                        p.error_count += 1
+                        p._error_count += 1
                         log.debug(u'ProcessManager.sigchild_handler: return'
-                                u'not 0, error_count + 1 = %s', p.error_count)
+                                u'not 0, error_count + 1 = %s', p._error_count)
                     del self.pidmap[pid]
                     p.restart()
                     self.pidmap[p.process.pid] = p
