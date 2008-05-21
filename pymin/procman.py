@@ -110,13 +110,17 @@ class ProcessManager:
 
     def start(self, name):
         log.debug(u'ProcessManager.start(%s)', name)
-        assert name not in self.namemap
-        self._call(self.services[name])
+        if name not in self.namemap:
+            self._call(self.services[name])
+            return True
+        return False
 
     def stop(self, name):
         log.debug(u'ProcessManager.stop(%s)', name)
-        assert name in self.namemap
-        self.namemap[name].stop()
+        if name in self.namemap:
+            self.namemap[name].stop()
+            return True
+        return False
 
     def restart(self, name):
         log.debug(u'ProcessManager.restart(%s)', name)
@@ -131,13 +135,17 @@ class ProcessManager:
             pi.restart()
             # add the new PID
             self.pidmap[pi.process.pid] = pi
+            return True
         else:
             self.start(name)
+            return False
 
     def kill(self, name, signum):
         log.debug(u'ProcessManager.kill(%s, %s)', name, signum)
-        assert name in self.namemap
-        self.namemap[name].kill(name, stop)
+        if name in self.namemap:
+            self.namemap[name].kill(name, stop)
+            return True
+        return False
 
     def sigchild_handler(self, signum, stack_frame=None):
         log.debug(u'ProcessManager.sigchild_handler(%s)', signum)
