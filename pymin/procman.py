@@ -68,7 +68,7 @@ class ProcessInfo:
             pid = self.process.pid
         return 'ProcessInfo(name=%s, pid=%s command=%s, persist=%s, cb=%s)' % (
                     self.name, pid, self.command, self.persist,
-                    self.callback.__name__)
+                    self.callback and self.callback.__name__ or None)
 
 class ProcessManager:
 
