@@ -78,19 +78,27 @@ class ProcessManager:
         self.pidmap = dict()
         log.debug(u'ProcessManager()')
 
-    def register(self, name, command, callback=None, persist=False,
+    def register(self, name, command=None, callback=None, persist=False,
                 max_errors=3, *args, **kwargs):
         log.debug(u'ProcessManager.register(%s, %s, %s, %s, %s, %s, %s)',
                   name, command, callback, persist, max_errors, args, kwargs)
+        if not isinstance(name, ProcessInfo):
+            pi = ProcessInfo(name, command, callback, persist, max_errors,
+                             args, kwargs)
+        else:
+            pi = name
+            name = pi.name
         assert not self.has(name)
-        pi = ProcessInfo(name, command, callback, persist, max_errors,
-                        args, kwargs)
         self.services[name] = pi
         return pi
 
     def unregister(self, name):
         log.debug(u'ProcessManager.unregister(%s)', name)
-        pi = self.services[name]
+        if isinstance(name, ProcessInfo):
+            pi = name
+            name = pi.name
+        else:
+            pi = self.services[name]
         del self.services[name]
         return pi
 
@@ -98,18 +106,24 @@ class ProcessManager:
         pi.start()
         self.namemap[pi.name] = self.pidmap[pi.process.pid] = pi
 
-    def once(self, name, command, callback=None, persist=False,
+    def once(self, name, command=None, callback=None, persist=False,
                 max_errors=3, *args, **kwargs):
         log.debug(u'ProcessManager.once(%s, %s, %s, %s, %s, %s, %s)',
                   name, command, callback, persist, max_errors, args, kwargs)
+        if not isinstance(name, ProcessInfo):
+            pi = ProcessInfo(name, command, callback, persist, max_errors,
+                             args, kwargs)
+        else:
+            pi = name
+            name = pi.name
         assert not self.has(name)
-        pi = ProcessInfo(name, command, callback, persist, max_errors,
-                         args, kwargs)
         self._call(pi)
         return pi
 
     def start(self, name):
         log.debug(u'ProcessManager.start(%s)', name)
+        if isinstance(name, ProcessInfo):
+            name = name.name
         if name not in self.namemap:
             self._call(self.services[name])
             return True
@@ -117,6 +131,8 @@ class ProcessManager:
 
     def stop(self, name):
         log.debug(u'ProcessManager.stop(%s)', name)
+        if isinstance(name, ProcessInfo):
+            name = name.name
         if name in self.namemap:
             self.namemap[name].stop()
             return True
@@ -124,6 +140,8 @@ class ProcessManager:
 
     def restart(self, name):
         log.debug(u'ProcessManager.restart(%s)', name)
+        if isinstance(name, ProcessInfo):
+            name = name.name
         # we have to check first in namemap in case is an unregistered
         # process (added with once())
         if name in self.namemap:
@@ -142,6 +160,8 @@ class ProcessManager:
 
     def kill(self, name, signum):
         log.debug(u'ProcessManager.kill(%s, %s)', name, signum)
+        if isinstance(name, ProcessInfo):
+            name = name.name
         if name in self.namemap:
             self.namemap[name].kill(name, stop)
             return True
