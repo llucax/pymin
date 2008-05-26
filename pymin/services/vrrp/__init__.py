@@ -55,7 +55,7 @@ class VrrpHandler(Restorable, ParametersHandler, ReloadHandler, RestartHandler,
         procman.restart('vrrp')
 
     def __init__(self, pickle_dir='.', config_dir='.', pid_dir='.'):
-        log.debug(u'VrrpHandler(%r, %r, $r)', pickle_dir, config_dir, pid_dir)
+        log.debug(u'VrrpHandler(%r, %r, %r)', pickle_dir, config_dir, pid_dir)
         self._persistent_dir = pickle_dir
         self._pid_dir = pid_dir
         procman.register('vrrp', None)
