@@ -7,6 +7,9 @@ from pymin.dispatcher import Handler
 from pymin.service import load_service, LoadError
 import config
 
+# exit status
+EXIT_NO_SERVICE = 1
+
 class Root(Handler):
     pass
 
@@ -18,7 +21,7 @@ def build_root(config):
             s = load_service(service, config.services_dirs)
         except LoadError, e:
             sys.stderr.write("Can't find service called '%s'\n" % service)
-            sys.exit(1)
+            sys.exit(EXIT_NO_SERVICE)
         services[service] = s
     root = Root()
     for name, service in services.items():
