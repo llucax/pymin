@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-import sys
 import logging ; log = logging.getLogger('pymind')
 # First of all, we need to setup the logging framework
 # FIXME: this should go in a configuration file
@@ -11,31 +10,65 @@ logging.basicConfig(
         datefmt = '%a, %d %b %Y %H:%M:%S',
 )
 
-from pymin.pymindaemon import PyminDaemon
+import os
+import sys
+from formencode import Invalid, validators as V
+
+from pymin.config import OptionGroup, Option, ConfigOption, ListOption
+from pymin.config import load_config, options
+from pymin.config import ConfigError, MissingSectionHeaderError, ParsingError
 from pymin.dispatcher import Handler
+from pymin.pymindaemon import PyminDaemon
 from pymin.service import load_service, LoadError
-import config
 
-# exit status
-EXIT_NO_SERVICE = 1
+# exit status (1 is reserved for command-line errors)
+EXIT_CONFIG_ERROR = 2
+EXIT_NO_SERVICE   = 3
 
-class Root(Handler):
-    pass
+# default locations where to look for configuration files
+# all found files will be processed, overriding the previous configuration
+# files values.
+config_file_paths = [
+    '/etc/pymin.ini',
+    '/etc/pymin/pymin.ini',
+    os.path.expanduser('~/.pymin.ini'),
+    os.path.expanduser('~/.pymin/pymin.ini'),
+]
 
-def build_root(config):
-    # TODO check services dependencies
-    services = dict()
-    for service in config.services:
-        try:
-            s = load_service(service, config.services_dirs)
-        except LoadError, e:
-            log.error("Can't find service called '%s'\n", service)
-            sys.exit(EXIT_NO_SERVICE)
-        services[service] = s
-    root = Root()
-    for name, service in services.items():
-        setattr(root, name, service.get_service(config))
-    return root
+# default locations where to look for service plug-ins
+# search stops when a service plug-in is found
+services_paths = [
+    os.path.expanduser('~/.pymin/services'),
+    '/usr/share/pymin/services',
+]
+
+# default configuration variables
+# these are useful variables to help the user writing the configuration file
+config_defaults = {
+    'pymind-data-dir':   '/var/lib/pymin',
+    'pymind-pickle-dir': '/var/lib/pymin/pickle',
+    'pymind-config-dir': '/var/lib/pymin/config',
+}
+
+# Validator to check if is a valid Python identifier
+PythonIdentifier = V.Regex(r'^[a-zA-Z_]\w*$')
+
+options.init('pymind', 'Pymin daemon global options', [
+    Option('bind_addr', V.CIDR, 'a', default='127.0.0.1', metavar='ADDR',
+           help='Bind to IP ADDR'),
+    Option('bind_port', V.Int(min=1, max=65535), 'p', default=9999,
+           metavar='PORT', help="Bind to port PORT"),
+    ListOption('services', PythonIdentifier, 's', default=[],
+               metavar='SERVICE', help="manage service SERVICE"),
+    ListOption('services_dirs', V.String, 'd', default=[],
+               metavar='DIR', help="search for services in DIR"),
+    ConfigOption('config_file', 'c', metavar='FILE',
+                 help="load the configuration file FILE after the default "
+                      "configuration files"),
+    ConfigOption('replace_config_file', 'C', override=True, metavar='FILE',
+                 help="don't load the default configuration files, just FILE"),
+])
+
 
 # FIXME
 try:
@@ -45,5 +78,61 @@ try:
 except (IOError, OSError), e:
     log.warning("Can't set ip_forward: %s", e)
 
-PyminDaemon(build_root(config), config.bind_addr).run()
+
+def get_config(paths, version, desc, add_options, defaults):
+    global config_file_paths
+    try:
+        (config, args) = load_config(paths, version, desc, add_options, defaults)
+    except ConfigError, e:
+        log.error(str(e))
+        sys.exit(EXIT_CONFIG_ERROR)
+    except MissingSectionHeaderError, e:
+        log.error("%s:%s: missing section header near: %s", e.filename, e.lineno,
+                  e.line)
+        sys.exit(EXIT_CONFIG_ERROR)
+    except ParsingError, e:
+        for (lineno, line) in e.errors:
+            log.error("%s:%s: invalid syntax near: %s", e.filename, lineno, line)
+        log.error(str(e.errors))
+        sys.exit(EXIT_CONFIG_ERROR)
+    except Invalid, e:
+        log.error(str(e.unpack_errors()))
+        sys.exit(EXIT_CONFIG_ERROR)
+    except LoadError, e:
+        log.error("service '%s' not found (see option --services-dir)",
+                  e.service_name)
+        sys.exit(EXIT_NO_SERVICE)
+    return (config, args)
+
+
+class Services:
+    def __init__(self):
+        self.services = dict()
+    def add_config_options(self, config, args):
+        for service in config.services:
+            s = load_service(service, config.services_dirs)
+            s.setup_service(options, config)
+            self.services[service] = s
+
+def build_root(config, args, services):
+    from pymin.dispatcher import Handler
+    class Root(Handler):
+        pass
+    # TODO check services dependencies
+    root = Root()
+    for name, service in services.items():
+        setattr(root, name, service.get_service(config))
+    return root
+
+
+def main():
+    services = Services()
+    (config, args) = get_config(config_file_paths, '%prog 0.1',
+                                'Router services administration daemon',
+                                services.add_config_options, config_defaults)
+    root_handler = build_root(config, args, services.services)
+    PyminDaemon(root_handler, (config.bind_addr, config.bind_port)).run()
+
+if __name__ == '__main__':
+    main()
 
