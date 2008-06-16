@@ -3,6 +3,13 @@
 
 import sys
 import logging ; log = logging.getLogger('pymind')
+# First of all, we need to setup the logging framework
+# FIXME: this should go in a configuration file
+logging.basicConfig(
+        level   = logging.DEBUG,
+        format  = '%(asctime)s %(name)-24s %(levelname)-8s %(message)s',
+        datefmt = '%a, %d %b %Y %H:%M:%S',
+)
 
 from pymin.pymindaemon import PyminDaemon
 from pymin.dispatcher import Handler

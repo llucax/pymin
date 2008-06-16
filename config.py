@@ -1,13 +1,5 @@
 # vim: set et sts=4 sw=4 encoding=utf-8 :
 
-# First of all, we need to setup the logging framework
-import logging
-logging.basicConfig(
-        level   = logging.DEBUG,
-        format  = '%(asctime)s %(name)-24s %(levelname)-8s %(message)s',
-        datefmt = '%a, %d %b %Y %H:%M:%S',
-)
-
 from pymin.dispatcher import Handler
 from os.path import join
 
