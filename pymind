@@ -30,5 +30,13 @@ def build_root(config):
         setattr(root, name, service.get_service(config))
     return root
 
+# FIXME
+try:
+    f = file("/proc/sys/net/ipv4/ip_forward","w")
+    f.write("1")
+    f.close()
+except (IOError, OSError), e:
+    log.warning("Can't set ip_forward: %s", e)
+
 PyminDaemon(build_root(config), config.bind_addr).run()
 

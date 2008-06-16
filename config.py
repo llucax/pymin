@@ -16,13 +16,6 @@ pickle_path = join(base_path, 'pickle')
 # FIXME, this should be specific for each service
 config_path = join(base_path, 'config')
 
-try:
-    f = file("/proc/sys/net/ipv4/ip_forward","w")
-    f.write("1")
-    f.close()
-except (IOError, OSError), e:
-    print "Can't set ip_forward:", e
-
 class firewall:
     pickle_dir = join(pickle_path, 'firewall')
     config_dir = join(config_path, 'firewall')
