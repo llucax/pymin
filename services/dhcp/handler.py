@@ -9,11 +9,7 @@ from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
                                TransactionalHandler, ParametersHandler, \
                                DictSubHandler, ReloadHandler
 
-__all__ = ('DhcpHandler', 'get_service')
-
-
-def get_service(config):
-    return DhcpHandler(config.dhcp.pickle_dir, config.dhcp.config_dir)
+__all__ = ('DhcpHandler')
 
 
 class Host(Sequence):

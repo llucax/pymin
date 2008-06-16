@@ -10,11 +10,7 @@ from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
                                TransactionalHandler, ParametersHandler, \
                                DictSubHandler
 
-__all__ = ('ProxyHandler', 'get_service')
-
-
-def get_service(config):
-    return ProxyHandler(config.proxy.pickle_dir, config.proxy.config_dir)
+__all__ = ('ProxyHandler')
 
 
 class Host(Sequence):

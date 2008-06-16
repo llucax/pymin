@@ -9,11 +9,7 @@ from pymin.service.util import Restorable, ConfigWriter, RestartHandler, \
                                ReloadHandler, TransactionalHandler, \
                                ServiceHandler, ListSubHandler, call
 
-__all__ = ('NatHandler', 'get_service')
-
-
-def get_service(config):
-    return NatHandler(config.nat.pickle_dir)
+__all__ = ('NatHandler')
 
 
 class PortForward(Sequence):

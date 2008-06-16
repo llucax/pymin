@@ -12,11 +12,7 @@ from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
                                DictComposedSubHandler, ListSubHandler, \
                                Device, Address, ExecutionError
 
-__all__ = ('IpHandler', 'get_service')
-
-
-def get_service(config):
-    return IpHandler(config.ip.pickle_dir, config.ip.config_dir)
+__all__ = ('IpHandler')
 
 
 class Hop(Sequence):

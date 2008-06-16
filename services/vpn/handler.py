@@ -11,11 +11,7 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
                                TransactionalHandler, DictSubHandler, DictComposedSubHandler, call, ExecutionError
 
-__all__ = ('VpnHandler', 'get_service')
-
-
-def get_service(config):
-    return VpnHandler(config.vpn.pickle_dir, config.vpn.config_dir)
+__all__ = ('VpnHandler')
 
 
 class Host(Sequence):
