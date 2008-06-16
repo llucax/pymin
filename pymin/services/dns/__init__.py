@@ -11,7 +11,12 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, ParametersHandler, \
                                 DictComposedSubHandler, DictSubHandler, call
 
-__all__ = ('DnsHandler',)
+__all__ = ('DnsHandler', 'get_service')
+
+
+def get_service(config):
+    return DnsHandler(config.dns.pickle_dir, config.dns.config_dir)
+
 
 class Host(Sequence):
     def __init__(self, name, ip):
