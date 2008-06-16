@@ -2,6 +2,8 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 import sys
+import logging ; log = logging.getLogger('pymind')
+
 from pymin.pymindaemon import PyminDaemon
 from pymin.dispatcher import Handler
 from pymin.service import load_service, LoadError
@@ -20,7 +22,7 @@ def build_root(config):
         try:
             s = load_service(service, config.services_dirs)
         except LoadError, e:
-            sys.stderr.write("Can't find service called '%s'\n" % service)
+            log.error("Can't find service called '%s'\n", service)
             sys.exit(EXIT_NO_SERVICE)
         services[service] = s
     root = Root()
