@@ -9,7 +9,12 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, ParametersHandler, \
                                 DictSubHandler, ReloadHandler
 
-__all__ = ('DhcpHandler',)
+__all__ = ('DhcpHandler', 'get_service')
+
+
+def get_service(config):
+    return DhcpHandler(config.dhcp.pickle_dir, config.dhcp.config_dir)
+
 
 class Host(Sequence):
     r"""Host(name, ip, mac) -> Host instance :: Class representing a host.

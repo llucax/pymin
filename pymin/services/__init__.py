@@ -1,12 +1,19 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from pymin.services.dhcp import DhcpHandler
-from pymin.services.dns import DnsHandler
-from pymin.services.firewall import FirewallHandler
-from pymin.services.nat import NatHandler
-from pymin.services.ip import IpHandler
-from pymin.services.proxy import ProxyHandler
-from pymin.services.vrrp import VrrpHandler
-from pymin.services.ppp import PppHandler
-from pymin.services.qos import QoSHandler
-from pymin.services.vpn import VpnHandler
+import imp
+
+class LoadError(ImportError):
+    pass
+
+def load_service(name, search_paths):
+    try:
+        (fp, path, desc) = imp.find_module(name, search_paths)
+    except ImportError:
+        raise LoadError('module "%s" not found' % name)
+
+    try:
+        return imp.load_module(name, fp, path, desc)
+    finally:
+        if fp:
+            fp.close()
+

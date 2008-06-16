@@ -14,7 +14,12 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.services.util import Restorable, ConfigWriter, ServiceHandler, \
                                 TransactionalHandler, ListSubHandler
 
-__all__ = ('FirewallHandler',)
+__all__ = ('FirewallHandler', 'get_service')
+
+
+def get_service(config):
+    return FirewallHandler(config.firewall.pickle_dir, config.firewall.config_dir)
+
 
 class UpOneOf(OneOf):
     def validate_python(self, value, state):

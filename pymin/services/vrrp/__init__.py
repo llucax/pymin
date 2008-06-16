@@ -8,7 +8,12 @@ from pymin.services.util import Restorable, TransactionalHandler, \
 # Logger
 import logging ; log = logging.getLogger('pymin.services.vrrp')
 
-__all__ = ('VrrpHandler',)
+__all__ = ('VrrpHandler', 'get_service')
+
+
+def get_service(config):
+    return VrrpHandler(config.vrrp.pickle_dir, config.vrrp.config_dir)
+
 
 # FIXME the the command should not use new parameters unless commit where called
 #       i.e. integrate commit with procman to update internal procman parameters.

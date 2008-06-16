@@ -11,7 +11,13 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
 
 import crypt
 
-__all__ = ('ProxyHandler',)
+
+__all__ = ('ProxyHandler', 'get_service')
+
+
+def get_service(config):
+    return ProxyHandler(config.proxy.pickle_dir, config.proxy.config_dir)
+
 
 class Host(Sequence):
     def __init__(self,ip):

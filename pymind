@@ -1,8 +1,29 @@
 #!/usr/bin/env python
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
+import sys
 from pymin.pymindaemon import PyminDaemon
+from pymin.dispatcher import Handler
+from pymin.services import load_service, LoadError
 import config
 
-PyminDaemon(config.Root(), config.bind_addr).run()
+class Root(Handler):
+    pass
+
+def build_root(config):
+    # TODO check services dependencies
+    services = dict()
+    for service in config.services:
+        try:
+            s = load_service(service, config.services_dirs)
+        except LoadError, e:
+            sys.stderr.write("Can't find service called '%s'\n" % service)
+            sys.exit(1)
+        services[service] = s
+    root = Root()
+    for name, service in services.items():
+        setattr(root, name, service.get_service(config))
+    return root
+
+PyminDaemon(build_root(config), config.bind_addr).run()
 

@@ -13,6 +13,13 @@ from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
                                 TransactionalHandler, DictSubHandler, DictComposedSubHandler, call, ExecutionError
 
 
+__all__ = ('VpnHandler', 'get_service')
+
+
+def get_service(config):
+    return VpnHandler(config.vpn.pickle_dir, config.vpn.config_dir)
+
+
 class Host(Sequence):
     def __init__(self, vpn_src, ip, vpn_src_net, key):
         self.name = vpn_src
