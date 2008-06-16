@@ -73,8 +73,8 @@ class vpn:
     config_dir = join(config_path, 'vpn')
 
 class qos:
-    pickle_dir = join(pickle_path, 'qos')
-    config_dir = join(config_path, 'qos')
+    pickle_dir = '.'
+    config_dir = '.'
 
 bind_addr = \
 (
@@ -82,7 +82,7 @@ bind_addr = \
     9999, # Port
 )
 
-services = 'firewall nat ppp vpn ip dns dhcp proxy vrrp qos'.split()
+services = ['qos']
 
 services_dirs = ['pymin/services']
 
