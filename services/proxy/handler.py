@@ -1,6 +1,7 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 from os import path
+import crypt
 import logging ; log = logging.getLogger('pymin.services.proxy')
 
 from pymin.seqtools import Sequence
@@ -8,9 +9,6 @@ from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
                                TransactionalHandler, ParametersHandler, \
                                DictSubHandler
-
-import crypt
-
 
 __all__ = ('ProxyHandler', 'get_service')
 
