@@ -4,7 +4,7 @@
 import sys
 from pymin.pymindaemon import PyminDaemon
 from pymin.dispatcher import Handler
-from pymin.services import load_service, LoadError
+from pymin.service import load_service, LoadError
 import config
 
 class Root(Handler):

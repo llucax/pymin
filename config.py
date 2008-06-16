@@ -83,5 +83,5 @@ bind_addr = \
 
 services = 'firewall nat ppp vpn ip dns dhcp proxy vrrp qos'.split()
 
-services_dirs = ['pymin/services']
+services_dirs = ['services']
 

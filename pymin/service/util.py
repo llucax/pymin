@@ -8,7 +8,7 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
-import logging ; log = logging.getLogger('pymin.services.util')
+import logging ; log = logging.getLogger('pymin.service.util')
 
 from pymin.dispatcher import Handler, handler, HandlerError, \
                                 CommandNotFoundError

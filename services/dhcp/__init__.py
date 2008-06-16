@@ -5,9 +5,9 @@ import logging ; log = logging.getLogger('pymin.services.dhcp')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
-from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, ParametersHandler, \
-                                DictSubHandler, ReloadHandler
+from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
+                               TransactionalHandler, ParametersHandler, \
+                               DictSubHandler, ReloadHandler
 
 __all__ = ('DhcpHandler', 'get_service')
 

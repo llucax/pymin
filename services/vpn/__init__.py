@@ -9,9 +9,8 @@ import logging ; log = logging.getLogger('pymin.services.vpn')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
-from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, DictSubHandler, DictComposedSubHandler, call, ExecutionError
-
+from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
+                               TransactionalHandler, DictSubHandler, DictComposedSubHandler, call, ExecutionError
 
 __all__ = ('VpnHandler', 'get_service')
 

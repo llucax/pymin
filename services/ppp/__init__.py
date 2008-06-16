@@ -8,8 +8,8 @@ import logging ; log = logging.getLogger('pymin.services.ppp')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
-from pymin.services.util import Restorable, ConfigWriter, ReloadHandler, \
-                                TransactionalHandler, DictSubHandler, call
+from pymin.service.util import Restorable, ConfigWriter, ReloadHandler, \
+                               TransactionalHandler, DictSubHandler, call
 
 __all__ = ('PppHandler', 'get_service')
 

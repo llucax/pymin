@@ -6,11 +6,11 @@ import logging ; log = logging.getLogger('pymin.services.ip')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
-from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, SubHandler, call, \
-                                get_network_devices, ListComposedSubHandler, \
-                                DictComposedSubHandler, ListSubHandler, \
-                                Device, Address, ExecutionError
+from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
+                               TransactionalHandler, SubHandler, call, \
+                               get_network_devices, ListComposedSubHandler, \
+                               DictComposedSubHandler, ListSubHandler, \
+                               Device, Address, ExecutionError
 
 __all__ = ('IpHandler', 'get_service')
 

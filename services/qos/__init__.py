@@ -5,10 +5,10 @@ from os import path
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
-from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, SubHandler, call, \
-                                get_network_devices, ListComposedSubHandler, \
-                                DictComposedSubHandler, ExecutionError
+from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
+                               TransactionalHandler, SubHandler, call, \
+                               get_network_devices, ListComposedSubHandler, \
+                               DictComposedSubHandler, ExecutionError
 
 __all__ = ('QoSHandler', 'get_service')
 

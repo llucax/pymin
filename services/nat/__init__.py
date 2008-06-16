@@ -5,9 +5,9 @@ import logging ; log = logging.getLogger('pymin.services.nat')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import Handler, handler, HandlerError
-from pymin.services.util import Restorable, ConfigWriter, RestartHandler, \
-                                ReloadHandler, TransactionalHandler, \
-                                ServiceHandler, ListSubHandler, call
+from pymin.service.util import Restorable, ConfigWriter, RestartHandler, \
+                               ReloadHandler, TransactionalHandler, \
+                               ServiceHandler, ListSubHandler, call
 
 __all__ = ('NatHandler', 'get_service')
 

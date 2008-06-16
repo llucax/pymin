@@ -7,9 +7,9 @@ import logging ; log = logging.getLogger('pymin.services.dns')
 
 from pymin.seqtools import Sequence
 from pymin.dispatcher import handler, HandlerError, Handler
-from pymin.services.util import Restorable, ConfigWriter, InitdHandler, \
-                                TransactionalHandler, ParametersHandler, \
-                                DictComposedSubHandler, DictSubHandler, call
+from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
+                               TransactionalHandler, ParametersHandler, \
+                               DictComposedSubHandler, DictSubHandler, call
 
 __all__ = ('DnsHandler', 'get_service')
 

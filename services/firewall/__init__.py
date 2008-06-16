@@ -11,8 +11,8 @@ import logging ; log = logging.getLogger('pymin.services.firewall')
 from pymin.item import Item
 from pymin.validatedclass import Field
 from pymin.dispatcher import Handler, handler, HandlerError
-from pymin.services.util import Restorable, ConfigWriter, ServiceHandler, \
-                                TransactionalHandler, ListSubHandler
+from pymin.service.util import Restorable, ConfigWriter, ServiceHandler, \
+                               TransactionalHandler, ListSubHandler
 
 __all__ = ('FirewallHandler', 'get_service')
 
