@@ -85,22 +85,22 @@ def get_config(paths, version, desc, add_options, defaults):
     try:
         (config, args) = load_config(paths, version, desc, add_options, defaults)
     except ConfigError, e:
-        log.error(str(e))
+        log.critical(str(e))
         sys.exit(EXIT_CONFIG_ERROR)
     except MissingSectionHeaderError, e:
-        log.error("%s:%s: missing section header near: %s", e.filename, e.lineno,
+        log.critical("%s:%s: missing section header near: %s", e.filename, e.lineno,
                   e.line)
         sys.exit(EXIT_CONFIG_ERROR)
     except ParsingError, e:
         for (lineno, line) in e.errors:
-            log.error("%s:%s: invalid syntax near: %s", e.filename, lineno, line)
-        log.error(str(e.errors))
+            log.critical("%s:%s: invalid syntax near: %s", e.filename, lineno, line)
+        log.critical(str(e.errors))
         sys.exit(EXIT_CONFIG_ERROR)
     except Invalid, e:
-        log.error(str(e.unpack_errors()))
+        log.critical(str(e.unpack_errors()))
         sys.exit(EXIT_CONFIG_ERROR)
     except LoadError, e:
-        log.error("service '%s' not found (see option --services-dir)",
+        log.critical("service '%s' not found (see option --services-dir)",
                   e.service_name)
         sys.exit(EXIT_NO_SERVICE)
     return (config, args)
