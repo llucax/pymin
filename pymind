@@ -80,29 +80,28 @@ def activate_ip_forward():
         log.warning("Can't set ip_forward: %s", e)
 
 
+def die(status, msg, *args):
+    log.critical(msg, *args)
+    sys.exit(status)
+
 def get_config(paths, version, desc, add_options, defaults):
     global config_file_paths
     try:
         (config, args) = load_config(paths, version, desc, add_options, defaults)
     except ConfigError, e:
-        log.critical(str(e))
-        sys.exit(EXIT_CONFIG_ERROR)
+        die(EXIT_CONFIG_ERROR, str(e))
     except MissingSectionHeaderError, e:
-        log.critical("%s:%s: missing section header near: %s", e.filename, e.lineno,
-                  e.line)
-        sys.exit(EXIT_CONFIG_ERROR)
+        dir(EXIT_CONFIG_ERROR, "%s:%s: missing section header near: %s",
+            e.filename, e.lineno, e.line)
     except ParsingError, e:
         for (lineno, line) in e.errors:
             log.critical("%s:%s: invalid syntax near: %s", e.filename, lineno, line)
-        log.critical(str(e.errors))
-        sys.exit(EXIT_CONFIG_ERROR)
+        die(EXIT_CONFIG_ERROR, str(e.errors))
     except Invalid, e:
-        log.critical(str(e.unpack_errors()))
-        sys.exit(EXIT_CONFIG_ERROR)
+        die(EXIT_CONFIG_ERROR, str(e.unpack_errors()))
     except LoadError, e:
-        log.critical("service '%s' not found (see option --services-dir)",
-                  e.service_name)
-        sys.exit(EXIT_NO_SERVICE)
+        die(EXIT_NO_SERVICE, "service '%s' not found (see option " \
+            "--services-dir)", e.service_name)
     return (config, args)
 
 
