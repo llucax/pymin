@@ -82,6 +82,7 @@ def activate_ip_forward():
 
 def die(status, msg, *args):
     log.critical(msg, *args)
+    logging.shutdown()
     sys.exit(status)
 
 def get_config(paths, version, desc, add_options, defaults):
@@ -133,6 +134,7 @@ def main():
     root_handler = build_root(config, args, services.services)
     activate_ip_forward()
     PyminDaemon(root_handler, (config.bind_addr, config.bind_port)).run()
+    logging.shutdown()
 
 if __name__ == '__main__':
     main()
