@@ -133,6 +133,12 @@ def build_root(config, args, services):
 
 
 def setup_logging(config_files):
+    # XXX: this is a hack for re-enabling loggers not configured via
+    #      fileConfig(). This function disable all existing loggers that
+    #      has no configuration specified in the config file, so we have
+    #      to re-enable the by hand.
+    #      See Python bug 3136: http://bugs.python.org/issue3136
+    existing = logging.root.manager.loggerDict.keys()
     loaded_files = 0
     for f in config_files:
         try:
@@ -145,6 +151,9 @@ def setup_logging(config_files):
         loaded_files += 1
     if not loaded_files:
         log.warning('no log config file loaded')
+    # XXX: finish the hack commented above
+    for log in existing:
+        logging.root.manager.loggerDict[log].disabled = 0
 
 
 def main():
