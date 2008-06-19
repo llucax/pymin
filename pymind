@@ -70,13 +70,14 @@ options.init('pymind', 'Pymin daemon global options', [
 ])
 
 
-# FIXME
-try:
-    f = file("/proc/sys/net/ipv4/ip_forward","w")
-    f.write("1")
-    f.close()
-except (IOError, OSError), e:
-    log.warning("Can't set ip_forward: %s", e)
+# FIXME: move to IpHandler or someplace else
+def activate_ip_forward():
+    try:
+        f = file("/proc/sys/net/ipv4/ip_forward","w")
+        f.write("1")
+        f.close()
+    except (IOError, OSError), e:
+        log.warning("Can't set ip_forward: %s", e)
 
 
 def get_config(paths, version, desc, add_options, defaults):
@@ -131,6 +132,7 @@ def main():
                                 'Router services administration daemon',
                                 services.add_config_options, config_defaults)
     root_handler = build_root(config, args, services.services)
+    activate_ip_forward()
     PyminDaemon(root_handler, (config.bind_addr, config.bind_port)).run()
 
 if __name__ == '__main__':
