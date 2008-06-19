@@ -1,14 +1,20 @@
 #!/usr/bin/env python
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-import logging, logging.config ; log = logging.getLogger('pymind')
-# default logging configuration
-# (this is used before the user configuration file gets parsed)
-logging.basicConfig(format='%(levelname)s: %(message)s')
-
 import os
 import sys
 from formencode import Invalid, validators as V
+
+import logging, logging.config ; log = logging.getLogger('pymind')
+# default logging configuration
+# (this is used before the user configuration file gets parsed)
+try:
+    # first we try to load a log config file
+    default = '/etc/pymin/log.init.ini'
+    logging.config.fileConfig(os.getenv('PYMIND_LOGINITCONF', default))
+except:
+    # then we try to load a reasonable default
+    logging.basicConfig(format='%(levelname)s: %(message)s')
 
 from pymin.config import OptionGroup, Option, ConfigOption, ListOption
 from pymin.config import load_config, options
