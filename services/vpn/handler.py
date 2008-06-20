@@ -7,30 +7,14 @@ from os import path
 import logging ; log = logging.getLogger('pymin.services.vpn')
 
 from pymin.seqtools import Sequence
-from pymin.dispatcher import Handler, handler, HandlerError
+from pymin.dispatcher import handler
 from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
-                               TransactionalHandler, DictSubHandler, DictComposedSubHandler, call, ExecutionError
+                               TransactionalHandler, DictSubHandler, \
+                               call, ExecutionError
 
-__all__ = ('VpnHandler')
+from host import HostHandler
 
-
-class Host(Sequence):
-    def __init__(self, vpn_src, ip, vpn_src_net, key):
-        self.name = vpn_src
-        self.ip = ip
-        self.src_net = vpn_src_net
-        self.pub_key = key
-        self._delete = False
-
-    def as_tuple(self):
-        return(self.name, self.ip, self.src_net, self.pub_key)
-
-class HostHandler(DictComposedSubHandler):
-
-    handler_help = u"Manage hosts for a vpn"
-    _comp_subhandler_cont = 'vpns'
-    _comp_subhandler_attr = 'hosts'
-    _comp_subhandler_class = Host
+__all__ = ('VpnHandler',)
 
 
 class Vpn(Sequence):
