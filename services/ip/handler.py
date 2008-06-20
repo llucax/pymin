@@ -1,162 +1,19 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from subprocess import Popen, PIPE
 from os import path
 import logging ; log = logging.getLogger('pymin.services.ip')
 
-from pymin.seqtools import Sequence
-from pymin.dispatcher import handler, HandlerError, Handler
-from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
-                               TransactionalHandler, SubHandler, call, \
-                               get_network_devices, ListComposedSubHandler, \
-                               DictComposedSubHandler, ListSubHandler, \
-                               Device, Address, ExecutionError
+from pymin.service.util import Restorable, ConfigWriter, call, \
+                               TransactionalHandler, ExecutionError, \
+                               get_network_devices
 
-__all__ = ('IpHandler')
+from hop import HopHandler
+from route import RouteHandler
+from addr import AddressHandler
+from dev import DeviceHandler
 
+__all__ = ('IpHandler',)
 
-class Hop(Sequence):
-
-    def __init__(self, gateway, device):
-        self.gateway = gateway
-        self.device = device
-
-    def as_tuple(self):
-        return (self.gateway, self.device)
-
-    def __cmp__(self, other):
-        if self.gateway == other.gateway \
-                and self.device == other.device:
-            return 0
-        return cmp(id(self), id(other))
-
-class HopHandler(ListSubHandler):
-    handler_help = u"Manage IP hops"
-    _cont_subhandler_attr = 'hops'
-    _cont_subhandler_class = Hop
-
-    @handler('Add a hop: add <device> <gateway>')
-    def add(self, dev, gw):
-        if not dev in self.parent.devices:
-            raise DeviceNotFoundError(device)
-        return ListSubHandler.add(self, dev, gw)
-
-
-class Route(Sequence):
-    def __init__(self, net_addr, prefix, gateway):
-        self.net_addr = net_addr
-        self.prefix = prefix
-        self.gateway = gateway
-
-    def update(self, net_addr=None, prefix=None, gateway=None):
-        if net_addr is not None: self.net_addr = net_addr
-        if prefix is not None: self.prefix = prefix
-        if gateway is not None: self.gateway = gateway
-
-    def as_tuple(self):
-        return(self.net_addr, self.prefix, self.gateway)
-
-    def __cmp__(self, other):
-        if self.net_addr == other.net_addr \
-                and self.prefix == other.prefix \
-                and self.gateway == other.gateway:
-            return 0
-        return cmp(id(self), id(other))
-
-class RouteHandler(ListComposedSubHandler):
-    handler_help = u"Manage IP routes"
-    _comp_subhandler_cont = 'devices'
-    _comp_subhandler_attr = 'routes'
-    _comp_subhandler_class = Route
-
-    @handler(u'Adds a route to : ip route add <net_addr> <prefix> <gateway> [device]')
-    def add(self, net_addr, prefix, gateway, dev=None):
-        if dev is not None:
-            ListComposedSubHandler.add(self, dev, net_addr, prefix, gateway)
-        else:
-            r = Route(net_addr, prefix, gateway)
-            if not r in self.parent.no_device_routes:
-                self.parent.no_device_routes.append(r)
-
-    @handler("Deletes a route : ip route delete <route_number_in_show> [dev]")
-    def delete(self, index, dev=None):
-        if dev is not None:
-            ListComposedSubHandler.delete(self, dev, index)
-        else:
-            i = int(index)
-            del self.parent.no_device_routes[i]
-
-    @handler("Shows routes : ip route show [dev]")
-    def show(self, dev=None):
-        if dev is not None:
-            return ListComposedSubHandler.show(self, dev)
-        else:
-            return self.parent.no_device_routes
-
-class AddressHandler(DictComposedSubHandler):
-    handler_help = u"Manage IP addresses"
-    _comp_subhandler_cont = 'devices'
-    _comp_subhandler_attr = 'addrs'
-    _comp_subhandler_class = Address
-
-
-class DeviceHandler(SubHandler):
-
-    handler_help = u"Manage network devices"
-
-    def __init__(self, parent):
-        log.debug(u'DeviceHandler(%r)', parent)
-        # FIXME remove templates to execute commands
-        from mako.template import Template
-        self.parent = parent
-        template_dir = path.join(path.dirname(__file__), 'templates')
-        dev_fn = path.join(template_dir, 'device')
-        self.device_template = Template(filename=dev_fn)
-
-    @handler(u'Bring the device up')
-    def up(self, name):
-        log.debug(u'DeviceHandler.up(%r)', name)
-        if name in self.parent.devices:
-            call(self.device_template.render(dev=name, action='up'), shell=True)
-            #bring up all the route asocitaed to the device
-            for route in self.parent.devices[name].routes:
-                try:
-                    log.debug(u'IpHandler.up: adding %r', route)
-                    call(self.parent._render_config('route_add', dict(
-                            dev = name,
-                            net_addr = route.net_addr,
-                            prefix = route.prefix,
-                            gateway = route.gateway,
-                        )
-                    ), shell=True)
-                except ExecutionError, e:
-                    log.debug(u'IpHandler.up: error adding %r -> %r', route, e)
-            self.parent._bring_up_no_dev_routes()
-            self.parent._restart_services()
-        else:
-            log.debug(u'DeviceHandler.up: device not found')
-            raise DeviceNotFoundError(name)
-
-    @handler(u'Bring the device down')
-    def down(self, name):
-        log.debug(u'DeviceHandler.down(%r)', name)
-        if name in self.parent.devices:
-            call(self.device_template.render(dev=name, action='down'), shell=True)
-            self.parent._bring_up_no_dev_routes()
-            self.parent._restart_services()
-        else:
-            log.debug(u'DeviceHandler.up: device not found')
-            raise DeviceNotFoundError(name)
-
-    @handler(u'List all devices')
-    def list(self):
-        log.debug(u'DeviceHandler.list()')
-        return self.parent.devices.keys()
-
-    @handler(u'Get information about a device')
-    def show(self):
-        log.debug(u'DeviceHandler.show()')
-        return self.parent.devices.items()
 
 class IpHandler(Restorable, ConfigWriter, TransactionalHandler):
 
