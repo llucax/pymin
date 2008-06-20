@@ -6,75 +6,14 @@ from os import path
 from signal import SIGTERM
 import logging ; log = logging.getLogger('pymin.services.ppp')
 
-from pymin.seqtools import Sequence
-from pymin.dispatcher import Handler, handler, HandlerError
+from pymin.dispatcher import Handler, handler
 from pymin.service.util import Restorable, ConfigWriter, ReloadHandler, \
-                               TransactionalHandler, DictSubHandler, call
+                               TransactionalHandler, ItemNotFoundError, call
 
-__all__ = ('PppHandler')
+from conn import ConnectionHandler
 
+__all__ = ('PppHandler',)
 
-class ConnectionError(HandlerError, KeyError):
-    r"""
-    ConnectionError(hostname) -> ConnectionError instance
-
-    This is the base exception for all connection related errors.
-    """
-
-    def __init__(self, connection):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Connection error: "%s"' % connection
-
-class ConnectionNotFoundError(ConnectionError):
-    def __init__(self, connection):
-        r"Initialize the object. See class documentation for more info."
-        self.message = u'Connection not found error: "%s"' % connection
-
-class Connection(Sequence):
-
-    def __init__(self, name, username, password, type, **kw):
-        self.name = name
-        self.username = username
-        self.password = password
-        self.type = type
-        self._running = False
-        if type == 'OE':
-            if not 'device' in kw:
-                raise ConnectionError('Bad arguments for type=OE')
-            self.device = kw['device']
-        elif type == 'TUNNEL':
-            if not 'server' in kw:
-                raise ConnectionError('Bad arguments for type=TUNNEL')
-            self.server = kw['server']
-            self.username = self.username.replace('\\','\\\\')
-        elif type == 'PPP':
-            if not 'device' in kw:
-                raise ConnectionError('Bad arguments for type=PPP')
-            self.device = kw['device']
-        else:
-            raise ConnectionError('Bad arguments, unknown or unspecified type')
-
-    def as_tuple(self):
-        if self.type == 'TUNNEL':
-            return (self.name, self.username, self.password, self.type, self.server)
-        elif self.type == 'PPP' or self.type == 'OE':
-            return (self.name, self.username, self.password, self.type, self.device)
-
-    def update(self, device=None, username=None, password=None):
-        if device is not None:
-            self.device = device
-        if username is not None:
-            self.username = username
-        if password is not None:
-            self.password = password
-
-
-class ConnectionHandler(DictSubHandler):
-
-    handler_help = u"Manages connections for the ppp service"
-
-    _cont_subhandler_attr = 'conns'
-    _cont_subhandler_class = Connection
 
 class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
 
@@ -119,7 +58,7 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
                     self._dump_attr('conns')
             else:
                 log.debug(u'PppHandler.start: connection not found')
-                raise ConnectionNotFoundError(name)
+                raise ItemNotFoundError(name)
 
     @handler(u'Stop one or all the connections.')
     def stop(self, name=None):
@@ -149,7 +88,7 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
                     log.debug(u'PppHandler.stop: connection not running')
             else:
                 log.debug(u'PppHandler.stop: connection not found')
-                raise ConnectionNotFoundError(name)
+                raise ItemNotFoundError(name)
 
     @handler(u'Restart one or all the connections (even disconnected ones).')
     def restart(self, name=None):
@@ -183,7 +122,7 @@ class PppHandler(Restorable, ConfigWriter, ReloadHandler, TransactionalHandler):
             return int(self.conns[name]._running)
         else:
             log.debug(u'PppHandler.running: connection not found')
-            raise ConnectionNotFoundError(name)
+            raise ItemNotFoundError(name)
 
     def handle_timer(self):
         log.debug(u'PppHandler.handle_timer()')
