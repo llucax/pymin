@@ -1,64 +1,16 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from subprocess import Popen, PIPE
 from os import path
 
 from pymin.seqtools import Sequence
-from pymin.dispatcher import handler, HandlerError, Handler
-from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
+from pymin.dispatcher import handler
+from pymin.service.util import Restorable, ConfigWriter, \
                                TransactionalHandler, SubHandler, call, \
-                               get_network_devices, ListComposedSubHandler, \
-                               DictComposedSubHandler, ExecutionError
+                               get_network_devices, ExecutionError, \
+                               ContainerNotFoundError, ItemNotFoundError, \
+                               ItemAlreadyExistsError
 
 __all__ = ('QoSHandler')
-
-
-class DeviceError(HandlerError):
-
-    def __init__(self, dev):
-        self.message = u'Devive error : "%s"' % dev
-
-
-class DeviceNotFoundError(DeviceError):
-
-    def __init__(self, dev):
-        self.message = u'Device not found : "%s"' % dev
-
-
-class ClassError(HandlerError):
-
-    def __init__(self, cls):
-        self.message = u'Class error : "%s"' % cls
-
-
-class ClassNotFoundError(ClassError):
-
-    def __init__(self, cls):
-        self.message = u'Class not found : "%s"' % cls
-
-
-class ClassAlreadyExistsError(ClassError):
-
-    def __init__(self, cls):
-        self.message = u'Class already exists : "%s"' % cls
-
-
-class HostError(HandlerError):
-
-    def __init__(self, host):
-        self.message = u'Host error : "%s"' % host
-
-
-class HostNotFoundError(HostError):
-
-    def __init__(self, ip):
-        self.message = u'Host not found : "%s"' % host
-
-
-class HostAlreadyExistsError(HostError):
-
-    def __init__(self, ip):
-        self.message = u'Host already exists : "%s"' % host
 
 
 class Class(Sequence):
@@ -77,7 +29,7 @@ class Class(Sequence):
         return cmp(id(self), id(other))
 
 
-class ClassHandler(Handler):
+class ClassHandler(SubHandler):
 
     def __init__(self, parent):
         self.parent = parent
@@ -85,22 +37,22 @@ class ClassHandler(Handler):
     @handler('Adds a class : add <id> <device> <rate>')
     def add(self, dev, cid, rate):
         if not dev in self.parent.devices:
-            raise DeviceNotFoundError(dev)
+            raise ContainerNotFoundError(dev)
 
         try:
             self.parent.devices[dev].classes[cid] = Class(cid, rate)
         except ValueError:
-            raise ClassAlreadyExistsError(cid  + ' -> ' + dev)
+            raise ItemAlreadyExistsError(cid  + ' -> ' + dev)
 
     @handler(u'Deletes a class : delete <id> <device>')
     def delete(self, dev, cid):
         if not dev in self.parent.devices:
-            raise DeviceNotFoundError(dev)
+            raise ContainerNotFoundError(dev)
 
         try:
             del self.parent.devices[dev].classes[cid]
         except KeyError:
-            raise ClassNotFoundError(cid + ' -> ' + dev)
+            raise ItemNotFoundError(cid + ' -> ' + dev)
 
     @handler(u'Lists classes : list <dev>')
     def list(self, dev):
@@ -133,15 +85,15 @@ class HostHandler(SubHandler):
     @handler('Adds a host to a class : add <device> <class id> <ip>')
     def add(self, dev, cid, ip):
         if not dev in self.parent.devices:
-            raise DeviceNotFoundError(dev)
+            raise ContainerNotFoundError(dev)
 
         if not cid in self.parent.devices[dev].classes:
-            raise ClassNotFoundError(cid)
+            raise ContainerNotFoundError(cid)
 
         try:
             self.parent.devices[dev].classes[cid].hosts[ip] = Host(ip)
         except ValueError:
-            raise HostAlreadyExistsError(h  + ' -> ' + dev)
+            raise ItemAlreadyExistsError(h  + ' -> ' + dev)
 
     @handler(u'Lists hosts : list <dev> <class id>')
     def list(self, dev, cid):
@@ -183,7 +135,7 @@ class DeviceHandler(SubHandler):
             except ExecutionError:
                 pass
         else:
-            raise DeviceNotFoundError(name)
+            raise ItemNotFoundError(name)
 
     @handler(u'Bring the device down')
     def down(self, name):
@@ -193,7 +145,7 @@ class DeviceHandler(SubHandler):
             except ExecutionError:
                 pass
         else:
-            raise DeviceNotFoundError(name)
+            raise ItemNotFoundError(name)
 
     @handler(u'List all devices')
     def list(self):
