@@ -3,11 +3,11 @@
 import logging ; log = logging.getLogger('pymin.services.vrrp')
 
 from pymin import procman
-from pymin.service.util import Restorable, TransactionalHandler, \
+from pymin.service.util import Restorable, ParametersHandler, \
                                ReloadHandler, RestartHandler, \
-                               ServiceHandler, ParametersHandler
+                               ServiceHandler, TransactionalHandler
 
-__all__ = ('VrrpHandler')
+__all__ = ('VrrpHandler',)
 
 
 # FIXME the the command should not use new parameters unless commit where called
