@@ -1,77 +1,22 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-# TODO COMMENT
+# TODO documentation, validation
+
 from os import path
 from os import unlink
 import logging ; log = logging.getLogger('pymin.services.dns')
 
-from pymin.seqtools import Sequence
-from pymin.dispatcher import handler, HandlerError, Handler
-from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
+from pymin.service.util import Restorable, ConfigWriter, \
                                TransactionalHandler, ParametersHandler, \
-                               DictComposedSubHandler, DictSubHandler, call
+                               InitdHandler, call
 
-__all__ = ('DnsHandler')
+from host import HostHandler
+from mx import MailExchangeHandler
+from ns import NameServerHandler
+from zone import ZoneHandler
 
+__all__ = ('DnsHandler',)
 
-class Host(Sequence):
-    def __init__(self, name, ip):
-        self.name = name
-        self.ip = ip
-    def update(self, ip=None):
-        if ip is not None: self.ip = ip
-    def as_tuple(self):
-        return (self.name, self.ip)
-
-class HostHandler(DictComposedSubHandler):
-    handler_help = u"Manage DNS hosts"
-    _comp_subhandler_cont = 'zones'
-    _comp_subhandler_attr = 'hosts'
-    _comp_subhandler_class = Host
-
-class MailExchange(Sequence):
-    def __init__(self, mx, prio):
-        self.mx = mx
-        self.prio = prio
-    def update(self, prio=None):
-        if prio is not None: self.prio = prio
-    def as_tuple(self):
-        return (self.mx, self.prio)
-
-class MailExchangeHandler(DictComposedSubHandler):
-    handler_help = u"Manage DNS mail exchangers (MX)"
-    _comp_subhandler_cont = 'zones'
-    _comp_subhandler_attr = 'mxs'
-    _comp_subhandler_class = MailExchange
-
-class NameServer(Sequence):
-    def __init__(self, name):
-        self.name = name
-    def as_tuple(self):
-        return (self.name,)
-
-class NameServerHandler(DictComposedSubHandler):
-    handler_help = u"Manage DNS name servers (NS)"
-    _comp_subhandler_cont = 'zones'
-    _comp_subhandler_attr = 'nss'
-    _comp_subhandler_class = NameServer
-
-class Zone(Sequence):
-    def __init__(self, name):
-        self.name = name
-        self.hosts = dict()
-        self.mxs = dict()
-        self.nss = dict()
-        self._add = False
-        self._update = False
-        self._delete = False
-    def as_tuple(self):
-        return (self.name, self.hosts, self.mxs, self.nss)
-
-class ZoneHandler(DictSubHandler):
-    handler_help = u"Manage DNS zones"
-    _cont_subhandler_attr = 'zones'
-    _cont_subhandler_class = Zone
 
 class DnsHandler(Restorable, ConfigWriter, InitdHandler, TransactionalHandler,
                  ParametersHandler):
@@ -239,12 +184,6 @@ if __name__ == '__main__':
     for z in dns.zones:
         print 'HOSTS from', z, ':', dns.host.show(z)
 
-    #test zone errors
-    #try:
-    #    dns.zone.update('zone-sarasa','lalal')
-    #except ZoneNotFoundError, inst:
-    #    print 'Error: ', inst
-
     from pymin.services.util import ItemNotFoundError, ItemAlreadyExistsError, \
                                     ContainerNotFoundError
 
@@ -252,11 +191,6 @@ if __name__ == '__main__':
         dns.zone.delete('zone-sarasa')
     except ItemNotFoundError, inst:
         print 'Error: ', inst
-
-    #try:
-    #    dns.zone.add('zona_loca.com','ns1.dom.com','ns2.dom.com')
-    #except ZoneAlreadyExistsError, inst:
-    #    print 'Error: ', inst
 
 
     #test hosts errors
