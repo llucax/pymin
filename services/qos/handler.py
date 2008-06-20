@@ -2,158 +2,15 @@
 
 from os import path
 
-from pymin.seqtools import Sequence
-from pymin.dispatcher import handler
 from pymin.service.util import Restorable, ConfigWriter, \
-                               TransactionalHandler, SubHandler, call, \
-                               get_network_devices, ExecutionError, \
-                               ContainerNotFoundError, ItemNotFoundError, \
-                               ItemAlreadyExistsError
+                               TransactionalHandler, ExecutionError, \
+                               call, get_network_devices
 
-__all__ = ('QoSHandler')
+from cls import ClassHandler
+from dev import DeviceHandler, Device
+from host import HostHandler
 
-
-class Class(Sequence):
-
-    def __init__(self, cid, rate=None):
-        self.cid = cid
-        self.rate = rate
-        self.hosts = dict()
-
-    def as_tuple(self):
-        return (self.cid, self.rate)
-
-    def __cmp__(self, other):
-        if self.cid == other.cid:
-            return 0
-        return cmp(id(self), id(other))
-
-
-class ClassHandler(SubHandler):
-
-    def __init__(self, parent):
-        self.parent = parent
-
-    @handler('Adds a class : add <id> <device> <rate>')
-    def add(self, dev, cid, rate):
-        if not dev in self.parent.devices:
-            raise ContainerNotFoundError(dev)
-
-        try:
-            self.parent.devices[dev].classes[cid] = Class(cid, rate)
-        except ValueError:
-            raise ItemAlreadyExistsError(cid  + ' -> ' + dev)
-
-    @handler(u'Deletes a class : delete <id> <device>')
-    def delete(self, dev, cid):
-        if not dev in self.parent.devices:
-            raise ContainerNotFoundError(dev)
-
-        try:
-            del self.parent.devices[dev].classes[cid]
-        except KeyError:
-            raise ItemNotFoundError(cid + ' -> ' + dev)
-
-    @handler(u'Lists classes : list <dev>')
-    def list(self, dev):
-        try:
-            k = self.parent.devices[dev].classes.items()
-        except KeyError:
-            k = dict()
-        return k
-
-
-class Host(Sequence):
-
-    def __init__(self, ip):
-        self.ip = ip
-
-    def as_tuple(self):
-        return (self.ip)
-
-    def __cmp__(self, other):
-        if self.ip == other.ip:
-            return 0
-        return cmp(id(self), id(other))
-
-
-class HostHandler(SubHandler):
-
-    def __init__(self, parent):
-        self.parent = parent
-
-    @handler('Adds a host to a class : add <device> <class id> <ip>')
-    def add(self, dev, cid, ip):
-        if not dev in self.parent.devices:
-            raise ContainerNotFoundError(dev)
-
-        if not cid in self.parent.devices[dev].classes:
-            raise ContainerNotFoundError(cid)
-
-        try:
-            self.parent.devices[dev].classes[cid].hosts[ip] = Host(ip)
-        except ValueError:
-            raise ItemAlreadyExistsError(h  + ' -> ' + dev)
-
-    @handler(u'Lists hosts : list <dev> <class id>')
-    def list(self, dev, cid):
-        try:
-            k = self.parent.devices[dev].classes[cid].hosts.keys()
-        except KeyError:
-            k = dict()
-        return k
-
-
-class Device(Sequence):
-
-    def __init__(self, name, mac):
-        self.name = name
-        self.mac = mac
-        self.classes = dict()
-
-    def as_tuple(self):
-        return (self.name, self.mac)
-
-
-class DeviceHandler(SubHandler):
-
-    handler_help = u"Manage network devices"
-
-    def __init__(self, parent):
-        # FIXME remove templates to execute commands
-        from mako.template import Template
-        self.parent = parent
-        template_dir = path.join(path.dirname(__file__), 'templates')
-        dev_fn = path.join(template_dir, 'device')
-        self.device_template = Template(filename=dev_fn)
-
-    @handler(u'Bring the device up')
-    def up(self, name):
-        if name in self.parent.devices:
-            try:
-                call(self.device_template.render(dev=name, action='add'), shell=True)
-            except ExecutionError:
-                pass
-        else:
-            raise ItemNotFoundError(name)
-
-    @handler(u'Bring the device down')
-    def down(self, name):
-        if name in self.parent.devices:
-            try:
-                call(self.device_template.render(dev=name, action='del'), shell=True)
-            except ExecutionError:
-                pass
-        else:
-            raise ItemNotFoundError(name)
-
-    @handler(u'List all devices')
-    def list(self):
-        return self.parent.devices.keys()
-
-    @handler(u'Get information about a device')
-    def show(self):
-        return self.parent.devices.items()
+__all__ = ('QoSHandler',)
 
 
 class QoSHandler(Restorable, ConfigWriter, TransactionalHandler):
@@ -237,3 +94,4 @@ if __name__ == '__main__':
     qos = QoSHandler()
     print '----------------------'
     qos.commit()
+
