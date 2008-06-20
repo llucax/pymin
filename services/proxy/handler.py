@@ -1,49 +1,16 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
 from os import path
-import crypt
 import logging ; log = logging.getLogger('pymin.services.proxy')
 
-from pymin.seqtools import Sequence
-from pymin.dispatcher import Handler, handler, HandlerError
 from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
-                               TransactionalHandler, ParametersHandler, \
-                               DictSubHandler
+                               TransactionalHandler, ParametersHandler
 
-__all__ = ('ProxyHandler')
+from host import HostHandler
+from user import UserHandler
 
+__all__ = ('ProxyHandler',)
 
-class Host(Sequence):
-    def __init__(self,ip):
-        self.ip = ip
-    def as_tuple(self):
-        return (self.ip,)
-
-# TODO convert to a SetSubHandler
-
-class HostHandler(DictSubHandler):
-
-    handler_help = u"Manage proxy hosts"
-
-    _cont_subhandler_attr = 'hosts'
-    _cont_subhandler_class = Host
-
-class User(Sequence):
-    def __init__(self, name, password):
-        self.name = name
-        self.password = crypt.crypt(password,'BA')
-    def as_tuple(self):
-        return (self.name, self.password)
-    def update(self, password=None):
-        if password is not None:
-            self.password = crypt.crypt(password,'BA')
-
-class UserHandler(DictSubHandler):
-
-    handler_help = u"Manage proxy users"
-
-    _cont_subhandler_attr = 'users'
-    _cont_subhandler_class = User
 
 class ProxyHandler(Restorable, ConfigWriter, InitdHandler,
                    TransactionalHandler, ParametersHandler):
