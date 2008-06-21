@@ -12,8 +12,6 @@ class Host(Sequence):
     def as_tuple(self):
         return (self.ip,)
 
-# TODO convert to a SetSubHandler
-
 class HostHandler(DictSubHandler):
 
     handler_help = u"Manage proxy hosts"
