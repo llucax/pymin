@@ -1,19 +1,10 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from formencode import Invalid
-from formencode.validators import OneOf, CIDR, Int
-
-from pymin.item import Item
-from pymin.validatedclass import Field
+from pymin.validation import Item, Field, UpOneOf, CIDR, Int, Invalid
 from pymin.service.util import ListSubHandler
 
 __all__ = ('FirewallHandler',)
 
-
-class UpOneOf(OneOf):
-    def validate_python(self, value, state):
-        value = value.upper()
-        return OneOf.validate_python(self, value, state)
 
 class Rule(Item):
     r"""Rule(chain, target[, src[, dst[, ...]]]) -> Rule instance.
