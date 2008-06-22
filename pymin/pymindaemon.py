@@ -114,13 +114,13 @@ class PyminDaemon(eventloop.EventLoop):
         try:
             result = self.dispatcher.dispatch(unicode(msg, 'utf-8'))
             if result is not None:
-                result = serializer.serialize(result)
+                result = unicode(serializer.serialize(result), 'utf-8')
             response = u'OK'
         except dispatcher.Error, e:
             result = unicode(e) + u'\n'
         except formencode.Invalid, e:
             if e.error_dict:
-                result = serializer.serialize(e.error_dict)
+                result = unicode(serializer.serialize(e.error_dict), 'utf-8')
             else:
                 result = unicode(e) + u'\n'
         except Exception, e:
