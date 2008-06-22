@@ -3,6 +3,8 @@
 import subprocess
 from mako.template import Template
 from mako.runtime import Context
+from formencode.validators import Int
+from formencode.schema import Schema
 from os import path
 try:
     import cPickle as pickle
@@ -24,6 +26,14 @@ __all__ = ('Error', 'ExecutionError', 'ItemError', 'ItemAlreadyExistsError',
            'ReloadHandler', 'InitdHandler', 'SubHandler', 'DictSubHandler',
            'ListSubHandler', 'ComposedSubHandler', 'ListComposedSubHandler',
            'DictComposedSubHandler', 'Device','Address')
+
+class IndexValidator(Schema):
+    "Trivial schema validator for SubHandler's indexes"
+    index = Int
+    def to_python(self, value, state=None):
+        # we want to return the index directly, the only purpose of this
+        # validation being a schema is for field error reporting
+        return super(Schema, self).to_python(dict(index=value), state)['index']
 
 class Error(HandlerError):
     r"""
@@ -877,7 +887,7 @@ class ContainerSubHandler(SubHandler):
         # TODO make it right with metaclasses, so the method is not created
         # unless the update() method really exists.
         if not isinstance(self._attr(), dict):
-            index = int(index) # TODO validation
+            index = IndexValidator.to_python(index)
         if not hasattr(self._cont_subhandler_class, 'update'):
             log.debug(u'ContainerSubHandler.update: update() not found, '
                         u"can't really update, raising command not found")
@@ -898,7 +908,7 @@ class ContainerSubHandler(SubHandler):
         r"delete(index) -> None :: Delete an item of the container."
         log.debug(u'ContainerSubHandler.delete(%r)', index)
         if not isinstance(self._attr(), dict):
-            index = int(index) # TODO validation
+            index = IndexValidator.to_python(index)
         try:
             item = self._vattr()[index]
             if hasattr(item, '_delete'):
@@ -927,7 +937,7 @@ class ContainerSubHandler(SubHandler):
         r"get(index) -> item :: List all the information of an item."
         log.debug(u'ContainerSubHandler.get(%r)', index)
         if not isinstance(self._attr(), dict):
-            index = int(index) # TODO validation
+            index = IndexValidator.to_python(index)
         try:
             return self._vattr()[index]
         except LookupError:
@@ -1085,7 +1095,7 @@ class ComposedSubHandler(SubHandler):
             log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if not isinstance(self._attr(cont), dict):
-            index = int(index) # TODO validation
+            index = IndexValidator.to_python(index)
         if not hasattr(self._comp_subhandler_class, 'update'):
             log.debug(u'ComposedSubHandler.update: update() not found, '
                         u"can't really update, raising command not found")
@@ -1113,7 +1123,7 @@ class ComposedSubHandler(SubHandler):
             log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if not isinstance(self._attr(cont), dict):
-            index = int(index) # TODO validation
+            index = IndexValidator.to_python(index)
         try:
             item = self._vattr(cont)[index]
             if hasattr(item, '_delete'):
@@ -1153,7 +1163,7 @@ class ComposedSubHandler(SubHandler):
             log.debug(u'ComposedSubHandler.add: container not found')
             raise ContainerNotFoundError(cont)
         if not isinstance(self._attr(cont), dict):
-            index = int(index) # TODO validation
+            index = IndexValidator.to_python(index)
         try:
             return self._vattr(cont)[index]
         except LookupError:
