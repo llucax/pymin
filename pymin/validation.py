@@ -96,3 +96,49 @@ class FullyQualifiedHostName(HostName):
     max_len = 253
     hostnameRE = re.compile(r"^[a-zA-Z0-9][\w\-\.]*\.[a-zA-Z]+$")
 
+
+class IPAddress(FancyValidator):
+    """
+    Formencode validator to check whether a string is a correct IP address
+
+    Examples::
+
+        >>> ip = IPAddress()
+        >>> ip.to_python('127.0.0.1')
+        '127.0.0.1'
+        >>> ip.to_python('299.0.0.1')
+        Traceback (most recent call last):
+            ...
+        Invalid: The octets must be within the range of 0-255 (not '299')
+        >>> ip.to_python('192.168.0.1/1')
+        Traceback (most recent call last):
+            ...
+        Invalid: Please enter a valid IP address (a.b.c.d)
+        >>> ip.to_python('asdf')
+        Traceback (most recent call last):
+            ...
+        Invalid: Please enter a valid IP address (a.b.c.d)
+    """
+    messages = {
+        'bad_format' : u'Please enter a valid IP address (a.b.c.d)',
+        'illegal_octets' : u'The octets must be within the range of 0-255 (not %(octet)r)',
+    }
+
+    def validate_python(self, value, state):
+        try:
+            octets = value.split('.')
+
+            # Only 4 octets?
+            if len(octets) != 4:
+                raise Invalid(self.message("bad_format", state, value=value), value, state)
+
+            # Correct octets?
+            for octet in octets:
+                if int(octet) < 0 or int(octet) > 255:
+                    raise Invalid(self.message("illegal_octets", state, octet=octet), value, state)
+
+        # Splitting faild: wrong syntax
+        except ValueError:
+            raise Invalid(self.message("bad_format", state), value, state)
+
+
