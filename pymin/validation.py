@@ -9,6 +9,39 @@ from pymin.item import Item
 from pymin.validatedclass import Field
 
 
+class Int8(Int):
+    min = -128
+    max = +127
+
+class UInt8(Int):
+    min = 0
+    max = 255
+
+class Int16(Int):
+    min = -32768
+    max = +32767
+
+class UInt16(Int):
+    min = 0
+    max = 65535
+
+class Int32(Int):
+    min = -2147483648
+    max = +2147483647
+
+class UInt32(Int):
+    min = 0
+    max = 4294967295
+
+class Int64(Int):
+    min = -9223372036854775808
+    max = +9223372036854775807
+
+class UInt64(Int):
+    min = 0
+    max = 18446744073709551615
+
+
 class UpOneOf(OneOf):
     """
     Same as :class:`OneOf` but values are uppercased before validation.
