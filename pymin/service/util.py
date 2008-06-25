@@ -1051,8 +1051,8 @@ class ComposedSubHandler(SubHandler):
         # do we have the same item? then raise an error
         if key in self._vattr(cont):
             log.debug(u'ComposedSubHandler.add: allready exists')
-            if not isinstance(self._attr(), dict):
-                key = self._attr().index(item)
+            if not isinstance(self._attr(cont), dict):
+                key = self._attr(cont).index(item)
             raise ItemAlreadyExistsError(key)
         # do we have the same item, but logically deleted? then update flags
         if key in self._attr(cont):
