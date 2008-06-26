@@ -232,6 +232,9 @@ if __name__ == '__main__':
         name = Field(formencode.validators.String(not_empty=True))
         age = Field(formencode.validators.Int(max=110, if_empty=None,
                                                        if_missing=None))
+        def __init__(self, *args, **kwargs):
+            ValidatedClass.__init__(self, *args, **kwargs)
+            self.a_dict = dict()
         # Some global validation after individual fields validation
         def chained_validator(self, fields, state):
             if 'Jr' in fields['name'] and fields['age'] > 25:
@@ -252,6 +255,11 @@ if __name__ == '__main__':
     t = Test('Graham') # But can be used without keywords too!
                        # Use the order of fields declaration
     assert t.name == 'Graham'
+
+    # we can use regular fields too
+    t.a_dict.update(dict(python=True))
+    assert 'python' in t.a_dict
+    assert t.a_dict['python'] is True
 
     t = Test('Graham', 20)
     assert t.name == 'Graham' and t.age == 20
