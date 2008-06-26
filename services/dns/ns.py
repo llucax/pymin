@@ -1,18 +1,15 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-# TODO documentation, validation
+# TODO documentation
 
-from pymin.seqtools import Sequence
+from pymin.validation import Item, Field, FullyQualifiedHostName
 from pymin.service.util import DictComposedSubHandler
 
 __all__ = ('NameServerHandler',)
 
 
-class NameServer(Sequence):
-    def __init__(self, name):
-        self.name = name
-    def as_tuple(self):
-        return (self.name,)
+class NameServer(Item):
+    name = Field(FullyQualifiedHostName(not_empty=True))
 
 class NameServerHandler(DictComposedSubHandler):
     handler_help = u"Manage DNS name servers (NS)"

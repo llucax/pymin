@@ -1,21 +1,16 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-# TODO documentation, validation
+# TODO documentation
 
-from pymin.seqtools import Sequence
+from pymin.validation import Item, Field, FullyQualifiedHostName, UInt16
 from pymin.service.util import DictComposedSubHandler
 
 __all__ = ('MailExchangeHandler',)
 
 
-class MailExchange(Sequence):
-    def __init__(self, mx, prio):
-        self.mx = mx
-        self.prio = prio
-    def update(self, prio=None):
-        if prio is not None: self.prio = prio
-    def as_tuple(self):
-        return (self.mx, self.prio)
+class MailExchange(Item):
+    mx = Field(FullyQualifiedHostName(not_empty=True))
+    prio = Field(UInt16(not_empty=True))
 
 class MailExchangeHandler(DictComposedSubHandler):
     handler_help = u"Manage DNS mail exchangers (MX)"
