@@ -1,2 +1,2 @@
 #!/bin/sh
-ifconfig $INTERFACE ${vpn.local_ip} netmask ${vpn.mask}
+ip addr add ${vpn.local_addr} dev $INTERFACE

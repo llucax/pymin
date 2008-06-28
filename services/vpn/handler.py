@@ -18,28 +18,25 @@ __all__ = ('VpnHandler',)
 
 
 class Vpn(Sequence):
-    def __init__(self, name, connect_to, local_ip, mask,
+    def __init__(self, name, connect_to, local_addr,
                  public_key=None, private_key=None):
         self.name = name
         self.connect_to = connect_to
-        self.local_ip = local_ip
-        self.mask = mask
+        self.local_addr = local_addr
         self.public_key = public_key
         self.private_key = private_key
         self.hosts = dict()
         self._delete = False
 
     def as_tuple(self):
-        return (self.name, self.connect_to, self.local_ip, self.mask,
+        return (self.name, self.connect_to, self.local_addr,
                 self.public_key, self.private_key)
 
-    def update(self, connect_to=None, local_ip=None, mask=None):
+    def update(self, connect_to=None, local_addr=None):
         if connect_to is not None:
             self.connect_to = connect_to
-        if local_ip is not None:
-            self.local_ip = local_ip
-        if mask is not None:
-            self.mask = mask
+        if local_addr is not None:
+            self.local_addr = local_addr
 
 
 class VpnHandler(Restorable, ConfigWriter,
