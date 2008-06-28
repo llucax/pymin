@@ -1,1 +1,2 @@
-ifconfig $INTERFACE ${vpn.vpn_src_ip} netmask ${vpn.vpn_src_mask}
+#!/bin/sh
+ifconfig $INTERFACE ${vpn.local_ip} netmask ${vpn.mask}

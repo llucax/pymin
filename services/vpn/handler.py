@@ -18,27 +18,28 @@ __all__ = ('VpnHandler',)
 
 
 class Vpn(Sequence):
-    def __init__(self, vpn_src, vpn_dst, vpn_src_ip, vpn_src_mask,
-                    pub_key=None, priv_key=None):
-        self.vpn_src = vpn_src
-        self.vpn_dst = vpn_dst
-        self.vpn_src_ip = vpn_src_ip
-        self.vpn_src_mask = vpn_src_mask
-        self.pub_key = pub_key
-        self.priv_key = priv_key
+    def __init__(self, name, connect_to, local_ip, mask,
+                 public_key=None, private_key=None):
+        self.name = name
+        self.connect_to = connect_to
+        self.local_ip = local_ip
+        self.mask = mask
+        self.public_key = public_key
+        self.private_key = private_key
         self.hosts = dict()
         self._delete = False
 
     def as_tuple(self):
-        return(self.vpn_src, self.vpn_dst, self.vpn_src_ip, self.vpn_src_mask, self.pub_key, self.priv_key)
+        return (self.name, self.connect_to, self.local_ip, self.mask,
+                self.public_key, self.private_key)
 
-    def update(self, vpn_dst=None, vpn_src_ip=None, vpn_src_mask=None):
-        if vpn_dst is not None:
-            self.vpn_dst = vpn_dst
-        if vpn_src_ip is not None:
-            self.vpn_src_ip = vpn_src_ip
-        if vpn_src_mask is not None:
-            self.vpn_src_mask = vpn_src_mask
+    def update(self, connect_to=None, local_ip=None, mask=None):
+        if connect_to is not None:
+            self.connect_to = connect_to
+        if local_ip is not None:
+            self.local_ip = local_ip
+        if mask is not None:
+            self.mask = mask
 
 
 class VpnHandler(Restorable, ConfigWriter,
@@ -69,16 +70,16 @@ class VpnHandler(Restorable, ConfigWriter,
         self.host = HostHandler(self)
 
     @handler('usage: start <vpn_name>')
-    def start(self, vpn_src):
-        log.debug(u'VpnHandler.start(%r)', vpn_src)
-        if vpn_src in self.vpns:
-            call(('tincd','--net='+ vpn_src))
+    def start(self, net_name):
+        log.debug(u'VpnHandler.start(%r)', net_name)
+        if net_name in self.vpns:
+            call(('tincd','--net=' + net_name))
 
     @handler('usage: stop <vpn_name>')
-    def stop(self, vpn_src):
-        log.debug(u'VpnHandler.stop(%r)', vpn_src)
-        if vpn_src in self.vpns:
-            pid_file = '/var/run/tinc.' + vpn_src + '.pid'
+    def stop(self, net_name):
+        log.debug(u'VpnHandler.stop(%r)', net_name)
+        if net_name in self.vpns:
+            pid_file = '/var/run/tinc.' + net_name + '.pid'
             log.debug(u'VpnHandler.stop: getting pid from %r', pid_file)
             if path.exists(pid_file):
                 pid = file(pid_file).readline()
@@ -97,17 +98,17 @@ class VpnHandler(Restorable, ConfigWriter,
             log.debug(u'VpnHandler._write_config: processing %r', v)
             #chek whether it's been created or not.
             if not v._delete:
-                if v.pub_key is None:
+                if v.public_key is None:
                     log.debug(u'VpnHandler._write_config: new VPN, generating '
                                 'key...')
                     try:
                         log.debug(u'VpnHandler._write_config: creating dir %r',
                                     path.join(self._config_writer_cfg_dir,
-                                                v.vpn_src ,'hosts'))
+                                                v.name, 'hosts'))
                         #first create the directory for the vpn
                         try:
                             os.makedirs(path.join(self._config_writer_cfg_dir,
-                                                  v.vpn_src, 'hosts'))
+                                                  v.name, 'hosts'))
                         except (IOError, OSError), e:
                             if e.errno != errno.EEXIST:
                                 raise HandlerError(u"Can't create VPN config "
@@ -118,11 +119,11 @@ class VpnHandler(Restorable, ConfigWriter,
                         #for some reason debian does not work like this
                         # FIXME if the < /dev/null works, is magic!
                         log.debug(u'VpnHandler._write_config: creating key...')
-                        call(('tincd', '-n', v.vpn_src, '-K', '<', '/dev/null'))
+                        call(('tincd', '-n', v.name, '-K', '<', '/dev/null'))
                         #open the created files and load the keys
                         try:
                             f = file(path.join(self._config_writer_cfg_dir,
-                                               v.vpn_src, 'rsa_key.pub'),
+                                               v.name, 'rsa_key.pub'),
                                      'r')
                             pub = f.read()
                             f.close()
@@ -130,42 +131,37 @@ class VpnHandler(Restorable, ConfigWriter,
                             raise HandlerError(u"Can't read VPN key '%s' (%s)'"
                                                 % (e.filename, e.strerror))
 
-                        v.pub_key = pub
-                        v.priv_key = priv
+                        v.public_key = pub
+                        v.private_key = priv
                     except ExecutionError, e:
                         log.debug(u'VpnHandler._write_config: error executing '
                                     'the command: %r', e)
 
-                vars = dict(
-                    vpn = v,
-                )
                 self._write_single_config('tinc.conf',
-                                path.join(v.vpn_src, 'tinc.conf'), vars)
+                                path.join(v.name, 'tinc.conf'), dict(vpn=v))
                 self._write_single_config('tinc-up',
-                                path.join(v.vpn_src, 'tinc-up'), vars)
+                                path.join(v.name, 'tinc-up'), dict(vpn=v))
                 for h in v.hosts.values():
                     if not h._delete:
-                        vars = dict(
-                            host = h,
-                        )
                         self._write_single_config('host',
-                                path.join(v.vpn_src, 'hosts', h.name), vars)
+                                path.join(v.name, 'hosts', h.name),
+                                dict(host=h))
                     else:
                         log.debug(u'VpnHandler._write_config: removing...')
                         try:
                             # FIXME use os.unlink()
                             call(('rm','-f',
-                                    path.join(v.vpn_src, 'hosts', h.name)))
+                                    path.join(v.name, 'hosts', h.name)))
                             del v.hosts[h.name]
                         except ExecutionError, e:
                             log.debug(u'VpnHandler._write_config: error '
                                     'removing files: %r', e)
             else:
                 #delete the vpn root at tinc dir
-                if path.exists('/etc/tinc/' + v.vpn_src):
-                    self.stop(v.vpn_src)
-                    call(('rm','-rf','/etc/tinc/' + v.vpn_src))
-                    del self.vpns[v.vpn_src]
+                if path.exists('/etc/tinc/' + v.name):
+                    self.stop(v.name)
+                    call(('rm','-rf','/etc/tinc/' + v.name))
+                    del self.vpns[v.name]
 
 
 if __name__ == '__main__':
@@ -176,7 +172,7 @@ if __name__ == '__main__':
         datefmt = '%H:%M:%S',
     )
 
-    v = VpnHandler()
+    v = VpnHandler('/tmp', '/tmp')
     v.add('prueba','sarasa','192.168.0.188','255.255.255.0')
     v.host.add('prueba', 'azazel' ,'192.168.0.77', '192.168.0.0',
                 'kjdhfkbdskljvkjblkbjeslkjbvkljbselvslberjhbvslbevlhb')
