@@ -7,15 +7,15 @@ __all__ = ('HostHandler',)
 
 
 class Host(Sequence):
-    def __init__(self, vpn_src, ip, vpn_src_net, key):
-        self.name = vpn_src
-        self.ip = ip
-        self.src_net = vpn_src_net
-        self.pub_key = key
+    def __init__(self, name, address, subnet, public_key):
+        self.name = name
+        self.address = address
+        self.subnet = subnet
+        self.public_key = public_key
         self._delete = False
 
     def as_tuple(self):
-        return(self.name, self.ip, self.src_net, self.pub_key)
+        return(self.name, self.address, self.subnet, self.public_key)
 
 class HostHandler(DictComposedSubHandler):
 

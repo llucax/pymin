@@ -1,3 +1,4 @@
-Address = ${host.ip}
-Subnet = ${host.src_net}
-${host.pub_key}
+# Host ${host.name} configuration
+Address = ${host.address}
+Subnet = ${host.subnet}
+${host.public_key}
