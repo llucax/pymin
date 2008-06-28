@@ -7,7 +7,7 @@ from os import path
 import logging ; log = logging.getLogger('pymin.services.vpn')
 
 from pymin.seqtools import Sequence
-from pymin.dispatcher import handler
+from pymin.dispatcher import handler, HandlerError
 from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
                                TransactionalHandler, DictSubHandler, \
                                call, ExecutionError
