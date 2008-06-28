@@ -6,7 +6,7 @@ import signal
 from os import path
 import logging ; log = logging.getLogger('pymin.services.vpn')
 
-from pymin.seqtools import Sequence
+from pymin.validation import Item, Field, HostName, CIDR, Validator
 from pymin.dispatcher import handler, HandlerError
 from pymin.service.util import Restorable, ConfigWriter, InitdHandler, \
                                TransactionalHandler, DictSubHandler, \
@@ -17,26 +17,17 @@ from host import HostHandler
 __all__ = ('VpnHandler',)
 
 
-class Vpn(Sequence):
-    def __init__(self, name, connect_to, local_addr,
-                 public_key=None, private_key=None):
-        self.name = name
-        self.connect_to = connect_to
-        self.local_addr = local_addr
-        self.public_key = public_key
-        self.private_key = private_key
+class Vpn(Item):
+    name = Field(HostName(not_empty=True))
+    connect_to = Field(HostName(not_empty=True))
+    local_addr = Field(CIDR(not_empty=True))
+    public_key = Field(Validator)
+    private_key = Field(Validator)
+
+    def __init__(self, *args, **kwargs):
+        Item.__init__(self, *args, **kwargs)
         self.hosts = dict()
         self._delete = False
-
-    def as_tuple(self):
-        return (self.name, self.connect_to, self.local_addr,
-                self.public_key, self.private_key)
-
-    def update(self, connect_to=None, local_addr=None):
-        if connect_to is not None:
-            self.connect_to = connect_to
-        if local_addr is not None:
-            self.local_addr = local_addr
 
 
 class VpnHandler(Restorable, ConfigWriter,

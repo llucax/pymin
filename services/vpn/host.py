@@ -1,21 +1,16 @@
 # vim: set encoding=utf-8 et sw=4 sts=4 :
 
-from pymin.seqtools import Sequence
+from pymin.validation import Item, Field, Any, HostName, \
+                             FullyQualifiedHostName, IPAddress, CIDR
 from pymin.service.util import DictComposedSubHandler
 
 __all__ = ('HostHandler',)
 
 
-class Host(Sequence):
-    def __init__(self, name, address, subnet, public_key):
-        self.name = name
-        self.address = address
-        self.subnet = subnet
-        self.public_key = public_key
-        self._delete = False
-
-    def as_tuple(self):
-        return(self.name, self.address, self.subnet, self.public_key)
+class Host(Item):
+    name = Field(HostName(not_empty=True))
+    address = Field(Any(HostName, FullyQualifiedHostName, IPAddress))
+    subnet = Field(CIDR)
 
 class HostHandler(DictComposedSubHandler):
 
